@@ -72,12 +72,15 @@ export const TEMPERATURE = {
   medium: "Нормально",
   warm: "Тепло",
 };
+// «В наушниках» отсюда убрали: для будущего соседа это ничем не отличалось от
+// тишины. Полезнее ступень между тишиной и музыкой вслух.
 export const NOISE = {
   quiet: "Тишина",
-  headphones: "В наушниках",
+  moderate: "Умеренно",
   loud: "Музыка вслух",
 };
 export const ALCOHOL = { no: "Не пьёт", sometimes: "Иногда", often: "Часто" };
+export const SNORING = { no: "Не храпит", sometimes: "Иногда", yes: "Храпит" };
 
 /** Готовка — список, поэтому подписи склеиваем: «Сам, вместе». */
 export function cookingLabel(value) {
@@ -118,4 +121,5 @@ export const SPECS = [
   ["🎉", "Гости", (p) => GUESTS[p.guests]],
   ["🚭", "Курение", (p) => SMOKING[p.smoking]],
   ["🍻", "Алкоголь", (p) => ALCOHOL[p.alcohol]],
+  ["😴", "Храп", (p) => SNORING[p.snoring]],
 ];

@@ -84,7 +84,7 @@ const FILTER_SELECTS = [
     "Звук",
     [
       ["quiet", "Тишина"],
-      ["headphones", "В наушниках"],
+      ["moderate", "Умеренно"],
       ["loud", "Музыка вслух"],
     ],
   ],
@@ -95,6 +95,15 @@ const FILTER_SELECTS = [
       ["no", "Не пьёт"],
       ["sometimes", "Иногда"],
       ["often", "Часто"],
+    ],
+  ],
+  [
+    "snoring",
+    "Храп",
+    [
+      ["no", "Не храпит"],
+      ["sometimes", "Иногда"],
+      ["yes", "Храпит"],
     ],
   ],
 ];

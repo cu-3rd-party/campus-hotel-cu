@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { GENDER, TRACK, roomLabel } from "../labels.js";
 import ProfileSpecs from "./ProfileSpecs.jsx";
 
@@ -16,8 +17,14 @@ export default function RoommateCard({
   highlight = false,
   // Совпали все мои параметры — помечаем, чтобы это было видно и в общей ленте.
   ideal = false,
+  // Админ чистит ленту прямо на месте: лишнюю анкету он видит здесь, а не в
+  // списке модерации — незачем искать её там заново.
+  canModerate = false,
+  onAdminDelete,
   busy,
 }) {
+  // Удаление необратимо — спрашиваем ещё раз, прямо в карточке.
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const {
     name,
     gender,
@@ -141,6 +148,40 @@ export default function RoommateCard({
         </svg>
         Написать в Telegram
       </a>
+
+      {/* Кнопка модерации — последней и неяркой: она нужна редко, а место
+          карточки принадлежит человеку, а не админу. */}
+      {canModerate && typeof onAdminDelete === "function" && (
+        <div className="card__mod">
+          {confirmDelete ? (
+            <>
+              <span className="card__mod-ask">Удалить анкету?</span>
+              <button
+                className="card__mod-keep"
+                onClick={() => setConfirmDelete(false)}
+                disabled={busy}
+              >
+                Оставить
+              </button>
+              <button
+                className="card__mod-del"
+                onClick={() => onAdminDelete(profile.id)}
+                disabled={busy}
+              >
+                Точно
+              </button>
+            </>
+          ) : (
+            <button
+              className="card__mod-del"
+              onClick={() => setConfirmDelete(true)}
+              disabled={busy}
+            >
+              🗑 Удалить (админ)
+            </button>
+          )}
+        </div>
+      )}
     </article>
   );
 }

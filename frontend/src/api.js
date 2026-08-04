@@ -269,6 +269,33 @@ export async function fetchAdminStats() {
 }
 
 /**
+ * Анкеты для модерации: свежие сверху, с поиском по имени, нику и номеру.
+ * Обычная лента для этого не годится — она делится по полу и кампус-отелю.
+ */
+export async function fetchAdminProfiles(params = {}) {
+  const qs = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== "" && value !== null && value !== undefined) {
+      qs.append(key, value);
+    }
+  }
+  const query = qs.toString();
+  const res = await fetch(`${BASE}/admin/profiles${query ? `?${query}` : ""}`, {
+    headers: authHeaders(),
+  });
+  return jsonOrThrow(res, "Не удалось загрузить анкеты");
+}
+
+/** Удалить чужую анкету — модерация: человека выводит из комнаты и уведомляет. */
+export async function adminDeleteProfile(id) {
+  const res = await fetch(`${BASE}/admin/profiles/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  return jsonOrThrow(res, "Не удалось удалить анкету");
+}
+
+/**
  * Просим бота прислать выгрузку файлом в чат.
  *
  * Не скачиваем в браузере: внутри Telegram на macOS и iOS скачанный файл

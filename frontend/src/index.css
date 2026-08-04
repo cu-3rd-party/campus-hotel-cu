@@ -861,6 +861,51 @@ body {
   color: #fff;
 }
 
+/* Кнопка модерации в карточке — видна только админу. Нарочно тихая: рядом с
+   ней живёт главное действие карточки, и перепутать их нельзя. */
+.card__mod {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+.card__mod-ask {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  flex: 1 1 auto;
+}
+.card__mod-del,
+.card__mod-keep {
+  border-radius: var(--pill);
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.card__mod-del {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: #e5484d;
+}
+.card__mod-del:hover:not(:disabled) {
+  border-color: #e5484d;
+}
+.card__mod-keep {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+}
+.card__mod-del:disabled,
+.card__mod-keep:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 /* Footer */
 .footer {
   text-align: center;
@@ -1759,6 +1804,163 @@ a.gmember:hover {
   font-weight: 700;
   color: #16a34a;
 }
+
+/* Разделы админки (выгрузка / модерация) — те же вкладки, что и в ленте,
+   только без счётчиков и с меньшими отступами: окно и так узкое. */
+.admin__tabs {
+  margin: 2px 0 0;
+}
+.admin__tabs .tabs__btn {
+  flex: 1;
+  justify-content: center;
+}
+
+/* ===== Модерация: поиск и список анкет ===== */
+.admin__search {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.admin__search input,
+.admin__search select {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 14px;
+  font-family: inherit;
+}
+.admin__search select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: var(--select-arrow);
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+.admin__search input:focus,
+.admin__search select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+/* Два фильтра в ряд: по одному на строку они съедали бы весь экран телефона. */
+.admin__search-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.admin__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/* Строка анкеты: фото, кто это, кнопка. На узком экране кнопка переезжает
+   под текст — прижимать её к краю ценой нечитаемого имени незачем. */
+.admin__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+}
+.admin__row-photo {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--photo-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+.admin__row-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.admin__row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* Без этого длинный ник растягивает строку и ломает перенос кнопки. */
+  min-width: 0;
+  flex: 1 1 140px;
+}
+.admin__row-name {
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+.admin__row-id {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.admin__row-meta {
+  font-size: 12px;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+/* «О себе» — одной строкой: список должен оставаться списком. */
+.admin__row-bio {
+  font-size: 12px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.admin__row-confirm {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.admin__row-delete,
+.admin__row-keep {
+  border-radius: var(--pill);
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  margin-left: auto;
+}
+.admin__row-confirm .admin__row-delete,
+.admin__row-confirm .admin__row-keep {
+  margin-left: 0;
+}
+.admin__row-delete {
+  border: 1px solid #e5484d;
+  background: transparent;
+  color: #e5484d;
+}
+.admin__row-delete:hover:not(:disabled) {
+  background: #e5484d;
+  color: #fff;
+}
+.admin__row-keep {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+}
+.admin__row-delete:disabled,
+.admin__row-keep:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
 /* Предупреждение о последствиях — заметное, но не пугающее красным. */
 .modal__warn {
   background: var(--bg);
@@ -2226,8 +2428,29 @@ a.gmember:hover {
   .filters select,
   .field input,
   .field select,
-  .field textarea {
+  .field textarea,
+  .admin__search input,
+  .admin__search select {
     font-size: 16px;
+  }
+
+  /* Модерация с телефона: строка становится плотнее, а кнопка «Удалить»
+     уезжает под текст — на всю ширину, чтобы в неё попадали пальцем. */
+  .admin__row {
+    padding: 9px;
+    gap: 9px;
+  }
+  .admin__row-photo {
+    width: 40px;
+    height: 40px;
+  }
+  .admin__row-confirm {
+    flex: 1 1 100%;
+    margin-left: 0;
+  }
+  .admin__row-confirm .admin__row-delete,
+  .admin__row-confirm .admin__row-keep {
+    flex: 1;
   }
 
   /* Модалка раскрывается на весь экран: форма длинная, так удобнее

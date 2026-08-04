@@ -20,7 +20,10 @@ import {
 import PhotoPicker from "./PhotoPicker.jsx";
 import TelegramLoginButton from "./TelegramLoginButton.jsx";
 
-const GENDER_WORD = { male: "Парень", female: "Девушка" };
+const GENDER_OPTIONS = [
+  ["male", "Парень"],
+  ["female", "Девушка"],
+];
 
 // Новая анкета начинается с «не выбрано»: пусть человек ответит сам, чем мы
 // припишем ему привычки, о которых он не говорил.
@@ -28,6 +31,9 @@ const EMPTY_FORM = {
   name: "",
   photo_url: "",
   telegram: "",
+  // Пол спрашивают на входе, ещё до анкеты, — и промахиваются. Поэтому он
+  // живёт в форме, а не приходит только снаружи: исправить надо уметь.
+  gender: "",
   campus: DEFAULT_CAMPUS, // подменяется на выбранный в приложении кампус-отель
   track: "",
   course: 1, // варианта «не выбрано» нет — по умолчанию 1 курс
@@ -43,6 +49,7 @@ const EMPTY_FORM = {
   temperature: "",
   noise: "",
   alcohol: "",
+  snoring: "",
 };
 
 const COOKING_CHOICES = [
@@ -96,7 +103,7 @@ export default function AddProfileModal({
   const insideTelegram = isInsideTelegram();
 
   const [form, setForm] = useState(() =>
-    isEdit ? formFromProfile(profile) : { ...EMPTY_FORM, campus }
+    isEdit ? formFromProfile(profile) : { ...EMPTY_FORM, campus, gender }
   );
   // Анкета уже подтверждена через Telegram (в режиме редактирования).
   const [verified, setVerified] = useState(
@@ -241,7 +248,8 @@ export default function AddProfileModal({
     try {
       const payload = {
         ...form,
-        gender,
+        // Пол берём из формы: там его можно исправить, если на входе ошиблись.
+        gender: form.gender || gender,
         course: Number(form.course),
         // Сервер перепроверит подпись и сам решит, ставить ли галочку.
         ...(tgAuth || {}),
@@ -322,9 +330,18 @@ export default function AddProfileModal({
                 ))}
               </select>
             </label>
+            {/* Пол выбирают ещё на входе, до анкеты, — и попадают не в свою
+                ленту. Раньше поле было заблокировано и исправить это было
+                негде: приходилось удалять анкету и заводить заново. */}
             <label className="field field--sm">
               <span>Пол</span>
-              <input value={GENDER_WORD[gender] || "—"} disabled readOnly />
+              <select value={form.gender || gender} onChange={set("gender")}>
+                {GENDER_OPTIONS.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
 
@@ -338,6 +355,20 @@ export default function AddProfileModal({
                 : "твои заявки и приглашения закроются."}
             </p>
           )}
+
+          {/* Комнаты однополые, поэтому смена пола — тоже переезд, только уже
+              в другую ленту. Говорим об этом до сохранения. */}
+          {isEdit &&
+            form.campus === profile.campus &&
+            form.gender !== profile.gender && (
+              <p className="modal__warn">
+                Пол меняется вместе с лентой: тебя будут видеть{" "}
+                {form.gender === "female" ? "девушки" : "парни"}
+                {profile.group_id
+                  ? ", а из своей комнаты ты выйдешь — комнаты однополые."
+                  : ", а заявки и приглашения закроются."}
+              </p>
+            )}
 
           {/* Ник спрашиваем, только если Telegram его не подтвердил. Внутри
               мини-аппа он подтягивается сам, и поле «введи свой ник» было
@@ -563,7 +594,7 @@ export default function AddProfileModal({
               <select value={form.noise} onChange={set("noise")}>
                 <option value="">Не выбрано</option>
                 <option value="quiet">Тишина</option>
-                <option value="headphones">Слушаю в наушниках</option>
+                <option value="moderate">Умеренно</option>
                 <option value="loud">Музыка вслух</option>
               </select>
             </label>
@@ -577,6 +608,18 @@ export default function AddProfileModal({
               </select>
             </label>
           </div>
+
+          {/* Храп — про него спрашивают чаще всего: с ним соседу жить каждую
+              ночь, а выясняется он обычно уже после заселения. */}
+          <label className="field">
+            <span>Храп</span>
+            <select value={form.snoring} onChange={set("snoring")}>
+              <option value="">Не выбрано</option>
+              <option value="no">Не храплю</option>
+              <option value="sometimes">Иногда похрапываю</option>
+              <option value="yes">Храплю</option>
+            </select>
+          </label>
 
           <div className="field">
             <span>Готовка (можно выбрать несколько)</span>

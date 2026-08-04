@@ -2,8 +2,6 @@ import { useState } from "react";
 import { TRACK, roomLabel } from "../labels.js";
 import ProfileSpecs from "./ProfileSpecs.jsx";
 
-const SPOTS_WORD = (n) => (n === 1 ? "место" : n < 5 ? "места" : "мест");
-
 function Avatar({ person, className = "" }) {
   const initial = (person.name || "?").trim().charAt(0).toUpperCase();
   return (
@@ -128,10 +126,14 @@ export default function GroupCard({
     !myRequestHere &&
     myProfile.gender === group.gender;
 
+  // Подсказка объясняет, почему нельзя подать заявку. Для собранной комнаты
+  // объяснять нечего: «Состав собран» написано в шапке, и «Мест нет» внизу
+  // было тем же самым второй раз.
   let hint = null;
-  if (!myProfile) hint = "Размести анкету, чтобы подать заявку";
-  else if (!iAmMember && myProfile.group_id) hint = "Ты уже в другой комнате";
-  else if (!iAmMember && full) hint = "Мест нет";
+  if (!iAmMember && !full) {
+    if (!myProfile) hint = "Размести анкету, чтобы подать заявку";
+    else if (myProfile.group_id) hint = "Ты уже в другой комнате";
+  }
 
   return (
     <article className={`gcard${full ? " gcard--full" : ""}`}>
@@ -147,15 +149,10 @@ export default function GroupCard({
               </span>
             )}
           </h3>
+          {/* Только состояние комнаты, без чисел: сколько занято и сколько
+              свободно, уже говорят счётчик справа и пустые места в списке. */}
           <p className="gcard__status">
-            {full ? (
-              "Состав собран"
-            ) : (
-              <>
-                Ищут ещё <strong>{spots_left}</strong> — свободно {spots_left}{" "}
-                {SPOTS_WORD(spots_left)}
-              </>
-            )}
+            {full ? "Состав собран" : "Ищут соседей"}
           </p>
         </div>
         <span className="gcard__count">
@@ -181,8 +178,10 @@ export default function GroupCard({
       {/* Заявки видят только жильцы этой комнаты */}
       {iAmMember && requests.length > 0 && (
         <div className="gcard__requests">
+          {/* Сколько именно голосов нужно, написано в каждой заявке
+              («подтвердили 1 из 3») — здесь это было бы то же число дважды. */}
           <p className="gcard__requests-title">
-            Заявки · нужно согласие всех {members.length}
+            Заявки · нужно согласие всех жильцов
           </p>
           {requests.map((r) => (
             <RequestRow

@@ -42,8 +42,9 @@ COOKING = {"self": "Сам", "together": "Вместе", "delivery": "Доста
 GUESTS = {"often": "Часто", "sometimes": "Иногда", "never": "Не зовёт"}
 SHOWER = {"morning": "Утром", "evening": "Вечером", "any": "Когда как"}
 TEMPERATURE = {"cool": "Прохладно", "medium": "Нормально", "warm": "Тепло"}
-NOISE = {"quiet": "Тишина", "headphones": "В наушниках", "loud": "Музыка вслух"}
+NOISE = {"quiet": "Тишина", "moderate": "Умеренно", "loud": "Музыка вслух"}
 ALCOHOL = {"no": "Не пьёт", "sometimes": "Иногда", "often": "Часто"}
+SNORING = {"no": "Не храпит", "sometimes": "Иногда", "yes": "Храпит"}
 
 # «Не выбрано» показываем прочерком, а не пустой ячейкой: пустая читается как
 # «данные потерялись», прочерк — как «человек не ответил».
@@ -123,6 +124,7 @@ def users_table(profiles: List[models.Profile], scope: str) -> tuple[list, list]
         "Гости",
         "Курение",
         "Алкоголь",
+        "Храп",
         "О себе",
         "Анкета создана",
     ]
@@ -161,6 +163,7 @@ def users_table(profiles: List[models.Profile], scope: str) -> tuple[list, list]
                 _label(GUESTS, p.guests),
                 _label(SMOKING, p.smoking),
                 _label(ALCOHOL, p.alcohol),
+                _label(SNORING, p.snoring),
                 (p.bio or "").replace("\n", " ").strip() or UNSET,
                 _when(p.created_at),
             ]

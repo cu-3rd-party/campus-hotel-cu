@@ -17,8 +17,9 @@ WAKEUP_PATTERN = "^(alarm_one|alarm_many|natural|)$"
 GUESTS_PATTERN = "^(often|sometimes|never|)$"
 SHOWER_PATTERN = "^(morning|evening|any|)$"
 TEMPERATURE_PATTERN = "^(cool|medium|warm|)$"
-NOISE_PATTERN = "^(quiet|headphones|loud|)$"
+NOISE_PATTERN = "^(quiet|moderate|loud|)$"
 ALCOHOL_PATTERN = "^(no|sometimes|often|)$"
+SNORING_PATTERN = "^(no|sometimes|yes|)$"
 SLEEP_PATTERN = "^(lark|owl|any|)$"
 
 COOKING_VALUES = ("self", "together", "delivery")
@@ -110,6 +111,7 @@ class ProfileBase(BaseModel):
     temperature: str = Field(UNSET, pattern=TEMPERATURE_PATTERN)
     noise: str = Field(UNSET, pattern=NOISE_PATTERN)
     alcohol: str = Field(UNSET, pattern=ALCOHOL_PATTERN)
+    snoring: str = Field(UNSET, pattern=SNORING_PATTERN)
 
     @field_validator("cooking", mode="before")
     @classmethod
@@ -132,7 +134,9 @@ class ProfileCreate(ProfileBase):
 class ProfileUpdate(ProfileBase):
     """Редактирование своей анкеты.
 
-    Пол и подтверждённый Telegram сервер менять не даёт — см. update_profile.
+    Подтверждённый Telegram сервер менять не даёт, а вот пол — даёт: на входе
+    его выбирают до анкеты и промахиваются, а исправить было негде (см.
+    update_profile).
     """
 
 
@@ -174,6 +178,7 @@ class GroupMemberOut(BaseModel):
     temperature: str = UNSET
     noise: str = UNSET
     alcohol: str = UNSET
+    snoring: str = UNSET
 
     @field_validator("cooking", mode="before")
     @classmethod
@@ -425,6 +430,29 @@ class AdminExportIn(BaseModel):
     format: str = Field("xlsx", pattern="^(xlsx|csv|json)$")
     scope: str = Field("full", pattern="^(full|short)$")
     campus: Optional[str] = Field(None, pattern=campuses.PATTERN)
+
+
+class AdminProfileOut(BaseModel):
+    """Строка списка модерации: по ней решают, удалять анкету или нет.
+
+    Бытовых параметров тут нет намеренно — для «эта анкета лишняя» хватает
+    имени, ника и фото, а лишние чужие данные незачем возить лишний раз.
+    """
+
+    id: int
+    name: str
+    photo_url: str = ""
+    telegram: str = ""
+    telegram_id: Optional[int] = None
+    telegram_verified: bool = False
+    gender: str
+    campus: str = campuses.DEFAULT
+    bio: str = ""
+    group_id: Optional[int] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 class AdminStatsOut(BaseModel):

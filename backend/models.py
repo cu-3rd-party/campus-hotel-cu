@@ -129,10 +129,15 @@ class Profile(Base):
     shower = Column(String(20), nullable=False, default="")
     # Температура в комнате: cool (прохладно) | medium (нормально) | warm (тепло)
     temperature = Column(String(20), nullable=False, default="")
-    # Звук: quiet (тишина) | headphones (в наушниках) | loud (музыка вслух)
+    # Звук: quiet (тишина) | moderate (умеренно) | loud (музыка вслух).
+    # «В наушниках» отсюда убрали: для соседа это то же самое, что тишина, —
+    # выбор ни о чём не говорил. Промежуточная ступень полезнее.
     noise = Column(String(20), nullable=False, default="")
     # Алкоголь: no (не пью) | sometimes (иногда) | often (часто)
     alcohol = Column(String(20), nullable=False, default="")
+    # Храп: no (не храплю) | sometimes (иногда) | yes (храплю).
+    # Спрашиваем прямо: с этим соседу жить каждую ночь.
+    snoring = Column(String(20), nullable=False, default="")
 
     created_at = Column(DateTime, default=datetime.utcnow)
 

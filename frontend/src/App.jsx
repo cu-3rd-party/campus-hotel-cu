@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  adminDeleteProfile,
   cancelBlockRequest,
   cancelRequest,
   changeGroupCapacity,
@@ -61,6 +62,7 @@ const EMPTY_FILTERS = {
   temperature: "",
   noise: "",
   alcohol: "",
+  snoring: "",
 };
 
 const GENDER_WORD = { male: "Парни", female: "Девушки" };
@@ -349,6 +351,12 @@ export default function App() {
   function handleUpdated(profile) {
     setModal(null);
     remember(profile); // обновляем «мою анкету»
+    // Поправил пол в анкете — значит, на входе ошибся лентой. Переключаем её
+    // следом, иначе человек остался бы смотреть чужую половину сервиса.
+    if (profile.gender !== gender) {
+      chooseGender(profile.gender);
+      return; // ленту перезапросит эффект на смену пола
+    }
     // Если анкета в ленте (без комнаты) — освежаем её на месте.
     setProfiles((prev) => prev.map((p) => (p.id === profile.id ? profile : p)));
   }
@@ -425,6 +433,11 @@ export default function App() {
 
   const handleLeaveBlock = (blockId) =>
     withBusy(() => leaveBlock(blockId, myProfile.id));
+
+  // Модерация: убрать лишнюю анкету прямо из ленты. Кнопку видит только админ,
+  // и право на это всё равно проверяет сервер по подписи Telegram.
+  const handleAdminDelete = (profileId) =>
+    withBusy(() => adminDeleteProfile(profileId));
 
   // Кампус-отель определяет и ленту, и размеры комнат — спрашиваем его первым.
   if (!campus) {
@@ -665,15 +678,14 @@ export default function App() {
 
         {!loading && !error && tab === "singles" && (
           <>
-            <p className="count">
-              {idealOn ? "Идеально подходят: " : "Ищут соседей: "}
-              <strong>{shownProfiles.length}</strong>
-              {!idealOn && openGroups.length > 0 && (
-                <>
-                  {" "}· комнат с местами: <strong>{openGroups.length}</strong>
-                </>
-              )}
-            </p>
+            {/* Сколько анкет в ленте, написано на вкладке, а сколько из них
+                идеально подходят — на самой кнопке «идеального соседа».
+                Строкой ниже остаётся только то, чего нигде больше нет. */}
+            {openGroups.length > 0 && (
+              <p className="count">
+                Комнат с местами: <strong>{openGroups.length}</strong>
+              </p>
+            )}
             {shownProfiles.length === 0 ? (
               <p className="state">
                 {filtersActive
@@ -698,6 +710,8 @@ export default function App() {
                         i.from_profile_id === myProfile?.id
                     )}
                     onInvite={handleInvite}
+                    canModerate={isAdmin}
+                    onAdminDelete={handleAdminDelete}
                     busy={busy}
                   />
                 ))}
@@ -725,10 +739,21 @@ export default function App() {
         {!loading && !error && tab === "groups" && (
           <>
             <div className="groups__top">
-              <p className="count">
-                Комнат: <strong>{groups.length}</strong> · с местами:{" "}
-                <strong>{openGroups.length}</strong>
-              </p>
+              {/* Сколько всего комнат, показывает вкладка. Здесь — только про
+                  места, и когда числа совпали бы, говорим словами. */}
+              {groups.length > 0 && (
+                <p className="count">
+                  {openGroups.length === 0 ? (
+                    "Все комнаты уже собраны"
+                  ) : openGroups.length === groups.length ? (
+                    "Места есть во всех комнатах"
+                  ) : (
+                    <>
+                      Комнат с местами: <strong>{openGroups.length}</strong>
+                    </>
+                  )}
+                </p>
+              )}
               {canStartGroup && (
                 <div className="groups__new">
                   <span>Договорились с кем-то? Создай комнату:</span>
@@ -785,7 +810,9 @@ export default function App() {
         Кампус-отели Диск и Облако · сервис поиска соседей по комнате
       </footer>
 
-      {modal === "admin" && <AdminPanel onClose={() => setModal(null)} />}
+      {modal === "admin" && (
+        <AdminPanel onClose={() => setModal(null)} onChanged={refresh} />
+      )}
 
       {(modal === "create" || modal === "edit") && (
         <AddProfileModal
