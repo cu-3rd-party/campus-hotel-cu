@@ -114,8 +114,12 @@ export default function GroupCard({
   onChangeCapacity,
   capacities = [2, 3, 4],
   busy,
+  // Собранная комната приезжает свёрнутой: заявку в неё всё равно не подать,
+  // а места в ленте она занимала столько же, сколько живая.
+  collapsible = false,
 }) {
   const { id, capacity, members, spots_left } = group;
+  const [expanded, setExpanded] = useState(false);
   const full = spots_left <= 0;
   const iAmMember = members.some((m) => m.id === myProfile?.id);
   const canRequest =
@@ -133,6 +137,46 @@ export default function GroupCard({
   if (!iAmMember && !full) {
     if (!myProfile) hint = "Размести анкету, чтобы подать заявку";
     else if (myProfile.group_id) hint = "Ты уже в другой комнате";
+  }
+
+  // Свёрнутая карточка — одна строка: кто живёт (лицами) и размер комнаты.
+  // Посмотреть состав всё ещё можно — одним нажатием.
+  if (collapsible && !expanded) {
+    const shown = members.slice(0, 4);
+    const rest = members.length - shown.length;
+    return (
+      <article className="gcard gcard--full gcard--collapsed">
+        <button
+          type="button"
+          className="gcard__peek"
+          onClick={() => setExpanded(true)}
+          aria-expanded="false"
+        >
+          <span className="gcard__peek-avas">
+            {shown.map((m) => (
+              <Avatar key={m.id} person={m} className="gmember__ava--mini" />
+            ))}
+            {rest > 0 && <span className="gcard__peek-more">+{rest}</span>}
+          </span>
+          <span className="gcard__peek-info">
+            <span className="gcard__peek-title">
+              Комната на {capacity}
+              {group.block_id && (
+                <span className="gcard__block" title="Комната объединена в блок">
+                  🧩
+                </span>
+              )}
+            </span>
+            <span className="gcard__peek-meta">
+              {members.map((m) => m.name).join(", ")}
+            </span>
+          </span>
+          <span className="gcard__peek-chevron" aria-hidden="true">
+            ▼
+          </span>
+        </button>
+      </article>
+    );
   }
 
   return (
@@ -259,6 +303,17 @@ export default function GroupCard({
       ) : hint ? (
         <p className="gcard__hint">{hint}</p>
       ) : null}
+
+      {/* Развернули собранную комнату — можно вернуть её обратно в строку. */}
+      {collapsible && expanded && (
+        <button
+          type="button"
+          className="gcard__fold"
+          onClick={() => setExpanded(false)}
+        >
+          Свернуть ▲
+        </button>
+      )}
     </article>
   );
 }

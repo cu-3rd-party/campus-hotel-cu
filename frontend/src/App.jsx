@@ -454,6 +454,20 @@ export default function App() {
     (i) => i.to_profile_id === myProfile?.id
   );
   const openGroups = groups.filter((g) => g.spots_left > 0);
+  // Собранная комната ничего не предлагает: заявку в неё не подать, а места
+  // в ленте она занимала столько же, сколько живая. Такие комнаты уезжают
+  // вниз и сворачиваются в строку. Своя комната и та, куда отправлена
+  // заявка, остаются наверху развёрнутыми — за ними в ленту и возвращаются.
+  const pinnedGroupIds = new Set([
+    ...(myProfile?.group_id ? [myProfile.group_id] : []),
+    ...myRequests.map((r) => r.group_id),
+  ]);
+  const liveGroups = groups.filter(
+    (g) => g.spots_left > 0 || pinnedGroupIds.has(g.id)
+  );
+  const doneGroups = groups.filter(
+    (g) => g.spots_left <= 0 && !pinnedGroupIds.has(g.id)
+  );
   const canStartGroup = myProfile && !myProfile.group_id;
   const capacities = campusCapacities(campus);
   const hasBlocks = campusHasBlocks(campus);
@@ -783,24 +797,62 @@ export default function App() {
                 присоединятся.
               </p>
             ) : (
-              <div className="grid grid--groups">
-                {groups.map((g) => (
-                  <GroupCard
-                    key={g.id}
-                    group={g}
-                    myProfile={myProfile}
-                    requests={incoming.filter((r) => r.group_id === g.id)}
-                    myRequestHere={myRequests.find((r) => r.group_id === g.id)}
-                    onRequest={handleRequest}
-                    onCancelRequest={handleCancelRequest}
-                    onVote={handleVote}
-                    onLeave={handleLeave}
-                    onChangeCapacity={handleChangeCapacity}
-                    capacities={capacities}
-                    busy={busy}
-                  />
-                ))}
-              </div>
+              <>
+                {liveGroups.length > 0 && (
+                  <div className="grid grid--groups">
+                    {liveGroups.map((g) => (
+                      <GroupCard
+                        key={g.id}
+                        group={g}
+                        myProfile={myProfile}
+                        requests={incoming.filter((r) => r.group_id === g.id)}
+                        myRequestHere={myRequests.find(
+                          (r) => r.group_id === g.id
+                        )}
+                        onRequest={handleRequest}
+                        onCancelRequest={handleCancelRequest}
+                        onVote={handleVote}
+                        onLeave={handleLeave}
+                        onChangeCapacity={handleChangeCapacity}
+                        capacities={capacities}
+                        busy={busy}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {doneGroups.length > 0 && (
+                  <section className="groups__done">
+                    <h3 className="groups__done-title">
+                      Собранные комнаты
+                      <span className="groups__done-count">
+                        {doneGroups.length}
+                      </span>
+                    </h3>
+                    <div className="groups__done-list">
+                      {doneGroups.map((g) => (
+                        <GroupCard
+                          key={g.id}
+                          group={g}
+                          myProfile={myProfile}
+                          requests={incoming.filter((r) => r.group_id === g.id)}
+                          myRequestHere={myRequests.find(
+                            (r) => r.group_id === g.id
+                          )}
+                          onRequest={handleRequest}
+                          onCancelRequest={handleCancelRequest}
+                          onVote={handleVote}
+                          onLeave={handleLeave}
+                          onChangeCapacity={handleChangeCapacity}
+                          capacities={capacities}
+                          busy={busy}
+                          collapsible
+                        />
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </>
             )}
           </>
         )}

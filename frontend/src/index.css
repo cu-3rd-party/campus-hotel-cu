@@ -2518,3 +2518,146 @@ a.gmember:hover {
     max-width: none;
   }
 }
+
+/* ── Собранные комнаты ───────────────────────────────────────────────────
+   Комната, где мест уже нет, ничего не предлагает: заявку в неё не подать.
+   Поэтому она уезжает под ленту и сворачивается в одну строку — состав
+   всё ещё виден лицами, а раскрыть её можно нажатием. */
+.groups__done {
+  margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.groups__done-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+.groups__done-count {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--pill);
+  padding: 2px 9px;
+}
+.groups__done-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gcard--collapsed {
+  padding: 0;
+  opacity: 1;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.gcard__peek {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.gcard__peek:hover {
+  background: var(--bg);
+}
+/* Лица внахлёст: состав читается с одного взгляда и в одну строку. */
+.gcard__peek-avas {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+}
+.gcard__peek-avas > * {
+  margin-left: -8px;
+  border: 2px solid var(--surface);
+}
+.gcard__peek-avas > *:first-child {
+  margin-left: 0;
+}
+.gmember__ava--mini {
+  width: 30px;
+  height: 30px;
+  font-size: 13px;
+}
+.gcard__peek-more {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+.gcard__peek-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+.gcard__peek-title {
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* Имена жильцов — одной строкой: карточка не должна расти вширь и вниз. */
+.gcard__peek-meta {
+  font-size: 12px;
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gcard__peek-chevron {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+/* Кнопка «Свернуть» у раскрытой собранной комнаты — вернуть её в строку. */
+.gcard__fold {
+  align-self: center;
+  border: none;
+  background: none;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 10px;
+}
+.gcard__fold:hover {
+  color: var(--ink);
+}
+
+@media (max-width: 640px) {
+  /* На узком экране строке нужен каждый пиксель — поджимаем отступы. */
+  .gcard__peek {
+    padding: 9px 12px;
+    gap: 10px;
+  }
+  .groups__done {
+    margin-top: 22px;
+  }
+}
