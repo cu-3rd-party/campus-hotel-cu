@@ -79,7 +79,6 @@ services:
 
   bot:
     build: ./bot
-    profiles: [ "bot" ]
     environment:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?}
       BOT_SECRET: ${BOT_SECRET:?}
