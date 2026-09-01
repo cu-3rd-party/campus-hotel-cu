@@ -1,0 +1,19 @@
+entryPoints:
+  web:
+    address: ":80"
+    forwardedHeaders:
+      insecure: true
+    transport:
+      respondingTimeouts:
+        readTimeout: 300s
+
+providers:
+  file:
+    directory: /etc/traefik
+    watch: true
+
+ping:
+  entryPoint: traefik
+
+log:
+  level: INFO

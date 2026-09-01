@@ -1,0 +1,33 @@
+http:
+  routers:
+    backend:
+      rule: "PathPrefix(`/api`)"
+      entryPoints:
+        - web
+      priority: 100
+      middlewares:
+        - body-limit
+      service: backend
+
+    frontend:
+      rule: "PathPrefix(`/`)"
+      entryPoints:
+        - web
+      priority: 1
+      service: frontend
+
+  middlewares:
+    body-limit:
+      buffering:
+        maxRequestBodyBytes: 15728640
+
+  services:
+    backend:
+      loadBalancer:
+        servers:
+          - url: "http://backend:8000"
+
+    frontend:
+      loadBalancer:
+        servers:
+          - url: "http://frontend:80"
