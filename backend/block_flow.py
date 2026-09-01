@@ -10,8 +10,7 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-import campuses
-import models
+from backend import campuses, models
 
 PENDING = "pending"
 APPROVED = "approved"
@@ -33,9 +32,7 @@ def votes_done(req: models.BlockRequest) -> int:
     return len([a for a in active_votes(req).values() if a is True])
 
 
-def pair_problem(
-    group: models.Group, other: models.Group
-) -> Optional[str]:
+def pair_problem(group: models.Group, other: models.Group) -> Optional[str]:
     """Почему эти две комнаты не соберут блок. None — всё в порядке.
 
     Один источник правды: проверяется и при отправке заявки, и при подсчёте
@@ -99,9 +96,7 @@ def evaluate(db: Session, req: models.BlockRequest) -> str:
         req.decided_at = datetime.utcnow()
         return REJECTED
 
-    block = models.Block(
-        gender=req.from_group.gender, campus=req.from_group.campus
-    )
+    block = models.Block(gender=req.from_group.gender, campus=req.from_group.campus)
     db.add(block)
     db.flush()  # нужен id до привязки комнат
     req.from_group.block_id = block.id

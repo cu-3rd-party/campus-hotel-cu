@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-import campuses
+from backend import campuses
 
 
 # Пустая строка = «не выбрано». Так честнее, чем подставлять выдуманное

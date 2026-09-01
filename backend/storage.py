@@ -3,7 +3,7 @@ import uuid
 
 from PIL import Image, UnidentifiedImageError
 
-from config import UPLOAD_DIR
+from backend.config import UPLOAD_DIR
 
 MAX_SIDE = 800  # px по большей стороне
 PUBLIC_PREFIX = "/api/media"

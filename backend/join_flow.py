@@ -9,7 +9,7 @@ from typing import List
 
 from sqlalchemy.orm import Session
 
-import models
+from backend import models
 
 PENDING = "pending"
 APPROVED = "approved"
@@ -75,7 +75,9 @@ def evaluate(db: Session, req: models.JoinRequest) -> str:
     return APPROVED
 
 
-def close_obsolete(db: Session, profile: models.Profile, group: models.Group) -> List[models.JoinRequest]:
+def close_obsolete(
+    db: Session, profile: models.Profile, group: models.Group
+) -> List[models.JoinRequest]:
     """После вступления человека убираем ставшие ненужными заявки.
 
     Возвращает заявки, чьих авторов стоит уведомить об отказе.

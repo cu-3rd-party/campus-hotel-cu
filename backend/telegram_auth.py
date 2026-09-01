@@ -8,7 +8,7 @@ from urllib.parse import parse_qsl
 
 import httpx
 
-from config import (
+from backend.config import (
     AUTH_MAX_AGE_SECONDS,
     MAX_UPLOAD_BYTES,
     TELEGRAM_BOT_TOKEN,

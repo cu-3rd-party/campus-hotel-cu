@@ -89,9 +89,7 @@ def admin_telegram_ids() -> set[int]:
     raw = os.getenv("ADMIN_TELEGRAM_IDS", "").strip()
     if not raw:
         return set(DEFAULT_ADMIN_TELEGRAM_IDS)
-    return {
-        int(item.strip()) for item in raw.split(",") if item.strip().isdigit()
-    }
+    return {int(item.strip()) for item in raw.split(",") if item.strip().isdigit()}
 
 
 ADMIN_TELEGRAM_IDS = admin_telegram_ids()
@@ -116,6 +114,7 @@ def allowed_origins() -> list[str]:
         ["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173"]
     )
     return sorted(origins)
+
 
 # Прокси до api.telegram.org и CDN Telegram — нужен там, где Telegram
 # заблокирован. Формат: http://user:pass@host:port или socks5://user:pass@host:port.

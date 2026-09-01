@@ -17,8 +17,7 @@ import zipfile
 from datetime import datetime
 from typing import List, Optional
 
-import campuses
-import models
+from backend import campuses, models
 
 # Подписи значений — те же, что человек видит на сайте. В выгрузке важнее
 # читаемость, чем машинные коды: таблицу открывают глазами.
@@ -286,9 +285,7 @@ def to_xlsx(
 
         # Ширина по содержимому, но без «простыней» на поле «О себе».
         for index, header in enumerate(headers, start=1):
-            widths = [len(str(header))] + [
-                len(str(row[index - 1])) for row in rows
-            ]
+            widths = [len(str(header))] + [len(str(row[index - 1])) for row in rows]
             sheet.column_dimensions[get_column_letter(index)].width = min(
                 max(max(widths) + 2, 10), 45
             )
