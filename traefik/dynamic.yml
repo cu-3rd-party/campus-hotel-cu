@@ -9,6 +9,14 @@ http:
         - body-limit
       service: backend
 
+    # дизайн решение @pxc1984: будем тихо дропать такие запросы вместо проверки секрета. вторая защита получается
+    backend-bot-to-frontend:
+      rule: "PathPrefix(`/api/bot`)"
+      entryPoints:
+        - web
+      priority: 200
+      service: frontend
+
     frontend:
       rule: "PathPrefix(`/`)"
       entryPoints:
