@@ -4,10 +4,10 @@ from typing import Optional
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from backend import schemas, models, join_flow
-from backend.api.requests import router
-from backend.database import get_db
-from backend.helpers import current_profile, _assert_is_me, _get_request_or_404
+import schemas, models, join_flow
+from api.requests import router
+from database import get_db
+from helpers import current_profile, _assert_is_me, _get_request_or_404
 
 
 @router.post("/api/requests/{request_id}/cancel", status_code=204)

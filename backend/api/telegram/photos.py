@@ -3,8 +3,8 @@ from typing import List
 from fastapi import HTTPException
 from starlette.concurrency import run_in_threadpool
 
-from backend import schemas, telegram_auth, storage
-from backend.api.telegram import router
+import schemas, telegram_auth, storage
+from api.telegram import router
 
 
 @router.post("/api/telegram/photos", response_model=schemas.TelegramPhotosOut)

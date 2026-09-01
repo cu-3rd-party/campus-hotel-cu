@@ -3,10 +3,10 @@ from typing import Optional
 from fastapi import BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from backend import schemas, models, notifier
-from backend.api.invites import router
-from backend.database import get_db
-from backend.helpers import current_profile, _assert_is_me, _get_invite_or_404, _assert_invite_still_valid, \
+import schemas, models, notifier
+from api.invites import router
+from database import get_db
+from helpers import current_profile, _assert_is_me, _get_invite_or_404, _assert_invite_still_valid, \
     _accept_invite, _decline_invite
 
 

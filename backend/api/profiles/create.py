@@ -1,10 +1,10 @@
 from fastapi import BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from backend import schemas, telegram_auth, models, notifier
-from backend.api.profiles import router
-from backend.database import get_db
-from backend.helpers import _pack_lists, _feed_msgs
+import schemas, telegram_auth, models, notifier
+from api.profiles import router
+from database import get_db
+from helpers import _pack_lists, _feed_msgs
 
 
 @router.post("/api/profiles", response_model=schemas.ProfileOut, status_code=201)

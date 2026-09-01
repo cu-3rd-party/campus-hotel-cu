@@ -1,8 +1,8 @@
 from fastapi import HTTPException
 
-from backend import schemas, telegram_auth
-from backend.api.auth.telegram import router
-from backend.helpers import _telegram_profile
+import schemas, telegram_auth
+from api.auth.telegram import router
+from helpers import _telegram_profile
 
 
 @router.post("/api/auth/telegram/webapp", response_model=schemas.TelegramProfileOut)

@@ -3,10 +3,10 @@ from typing import Optional
 from fastapi import BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from backend import schemas, models, block_flow, campuses, notifier
-from backend.api.blocks import router
-from backend.database import get_db
-from backend.helpers import current_profile, _my_group_or_403, _get_group_or_404, _group_msgs, _room_name, \
+import schemas, models, block_flow, campuses, notifier
+from api.blocks import router
+from database import get_db
+from helpers import current_profile, _my_group_or_403, _get_group_or_404, _group_msgs, _room_name, \
     _block_request_out
 
 

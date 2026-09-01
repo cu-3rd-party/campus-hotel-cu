@@ -1,10 +1,10 @@
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from backend import schemas, telegram_auth
-from backend.api.profiles import router
-from backend.database import get_db
-from backend.helpers import _find_profile_by_telegram
+import schemas, telegram_auth
+from api.profiles import router
+from database import get_db
+from helpers import _find_profile_by_telegram
 
 
 @router.post("/api/profiles/me", response_model=schemas.ProfileOut)

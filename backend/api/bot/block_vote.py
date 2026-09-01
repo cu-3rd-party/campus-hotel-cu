@@ -1,10 +1,10 @@
 from fastapi import Depends, BackgroundTasks, HTTPException
 from sqlalchemy.orm import Session
 
-from backend import schemas, block_flow, notifier
-from backend.api.bot import router
-from backend.database import get_db
-from backend.helpers import _check_bot_secret, _find_profile_by_telegram, _get_block_request_or_404, _apply_block_vote, \
+import schemas, block_flow, notifier
+from api.bot import router
+from database import get_db
+from helpers import _check_bot_secret, _find_profile_by_telegram, _get_block_request_or_404, _apply_block_vote, \
     _room_name
 
 

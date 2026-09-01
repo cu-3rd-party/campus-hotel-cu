@@ -1,10 +1,10 @@
 from fastapi import Depends, BackgroundTasks
 from sqlalchemy.orm import Session
 
-from backend import config, notifier
-from backend.api.admin import router
-from backend.database import get_db
-from backend.helpers import require_admin, _get_profile_or_404, _remove_from_group, _close_pending, _msg
+import config, notifier
+from api.admin import router
+from database import get_db
+from helpers import require_admin, _get_profile_or_404, _remove_from_group, _close_pending, _msg
 
 
 @router.delete(

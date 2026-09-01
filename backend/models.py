@@ -12,8 +12,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
-from backend import campuses
-from backend.database import Base
+import campuses
+from database import Base
 
 
 class Block(Base):

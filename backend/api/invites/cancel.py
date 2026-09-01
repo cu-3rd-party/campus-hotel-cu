@@ -4,10 +4,10 @@ from typing import Optional
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from backend import schemas, models
-from backend.api.invites import router
-from backend.database import get_db
-from backend.helpers import current_profile, _assert_is_me, _get_invite_or_404
+import schemas, models
+from api.invites import router
+from database import get_db
+from helpers import current_profile, _assert_is_me, _get_invite_or_404
 
 
 @router.post("/api/invites/{invite_id}/cancel", status_code=204)

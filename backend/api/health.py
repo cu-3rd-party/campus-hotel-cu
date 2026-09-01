@@ -1,4 +1,4 @@
-from backend.api import router
+from api import router
 
 
 @router.get("/api/health")

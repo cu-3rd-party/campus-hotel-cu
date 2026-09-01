@@ -1,10 +1,10 @@
 from fastapi import Depends, BackgroundTasks, HTTPException
 from sqlalchemy.orm import Session
 
-from backend import schemas, join_flow, notifier
-from backend.api.bot import router
-from backend.database import get_db
-from backend.helpers import _check_bot_secret, _find_profile_by_telegram, _get_request_or_404, _apply_vote
+import schemas, join_flow, notifier
+from api.bot import router
+from database import get_db
+from helpers import _check_bot_secret, _find_profile_by_telegram, _get_request_or_404, _apply_vote
 
 
 @router.post("/api/bot/vote", dependencies=[Depends(_check_bot_secret)])

@@ -17,7 +17,7 @@ import zipfile
 from datetime import datetime
 from typing import List, Optional
 
-from backend import campuses, models
+import campuses, models
 
 # Подписи значений — те же, что человек видит на сайте. В выгрузке важнее
 # читаемость, чем машинные коды: таблицу открывают глазами.

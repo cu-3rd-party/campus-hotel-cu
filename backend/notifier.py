@@ -9,7 +9,7 @@ from typing import List, Optional, Union
 
 import httpx
 
-from backend.config import TELEGRAM_BOT_TOKEN, TELEGRAM_PROXY_URL
+from config import TELEGRAM_BOT_TOKEN, TELEGRAM_PROXY_URL
 
 log = logging.getLogger(__name__)
 

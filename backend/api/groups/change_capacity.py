@@ -4,10 +4,10 @@ from typing import Optional, List
 from fastapi import BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from backend import schemas, models, join_flow, config, notifier
-from backend.api.groups import router
-from backend.database import get_db
-from backend.helpers import current_profile, _assert_is_me, _get_group_or_404, _get_profile_or_404, \
+import schemas, models, join_flow, config, notifier
+from api.groups import router
+from database import get_db
+from helpers import current_profile, _assert_is_me, _get_group_or_404, _get_profile_or_404, \
     _assert_capacity_allowed, _close_group_blocks, _msg, _h
 
 

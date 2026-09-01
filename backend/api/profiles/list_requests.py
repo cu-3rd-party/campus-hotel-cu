@@ -3,10 +3,10 @@ from typing import List, Optional
 from fastapi import Depends, Query
 from sqlalchemy.orm import Session
 
-from backend import schemas, models
-from backend.api.profiles import router
-from backend.database import get_db
-from backend.helpers import current_profile, _assert_is_me, _get_profile_or_404, _request_out
+import schemas, models
+from api.profiles import router
+from database import get_db
+from helpers import current_profile, _assert_is_me, _get_profile_or_404, _request_out
 
 
 @router.get(

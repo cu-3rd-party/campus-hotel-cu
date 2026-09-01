@@ -3,10 +3,10 @@ from typing import Optional, List
 from fastapi import BackgroundTasks, Depends
 from sqlalchemy.orm import Session
 
-from backend import schemas, models, notifier
-from backend.api.profiles import router
-from backend.database import get_db
-from backend.helpers import current_profile, _assert_is_me, _get_profile_or_404, _remove_from_group, _close_pending, \
+import schemas, models, notifier
+from api.profiles import router
+from database import get_db
+from helpers import current_profile, _assert_is_me, _get_profile_or_404, _remove_from_group, _close_pending, \
     _pack_lists
 
 

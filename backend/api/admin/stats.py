@@ -2,10 +2,10 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 from starlette.responses import Response
 
-from backend import schemas, models, campuses
-from backend.api.admin import router
-from backend.database import get_db
-from backend.helpers import require_admin
+import schemas, models, campuses
+from api.admin import router
+from database import get_db
+from helpers import require_admin
 
 
 @router.get(

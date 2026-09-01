@@ -1,10 +1,10 @@
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from backend import schemas, models
-from backend.api.profiles import router
-from backend.database import get_db
-from backend.helpers import telegram_user
+import schemas, models
+from api.profiles import router
+from database import get_db
+from helpers import telegram_user
 
 
 @router.get(

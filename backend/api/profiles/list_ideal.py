@@ -3,10 +3,10 @@ from typing import List, Optional
 from fastapi import Depends, Query
 from sqlalchemy.orm import Session
 
-from backend import schemas, models, config
-from backend.api.profiles import router
-from backend.database import get_db
-from backend.helpers import telegram_user, current_profile, _ideal_match, IDEAL_WILDCARD, IDEAL_FIELDS
+import schemas, models, config
+from api.profiles import router
+from database import get_db
+from helpers import telegram_user, current_profile, _ideal_match, IDEAL_WILDCARD, IDEAL_FIELDS
 
 
 @router.get(

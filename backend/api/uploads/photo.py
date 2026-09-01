@@ -1,8 +1,8 @@
 from fastapi import UploadFile, File, HTTPException
 from starlette.concurrency import run_in_threadpool
 
-from backend import schemas, config, storage
-from backend.api.uploads import router
+import schemas, config, storage
+from api.uploads import router
 
 
 @router.post("/api/uploads/photo", response_model=schemas.PhotoOut, status_code=201)

@@ -3,10 +3,10 @@ from typing import List
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-from backend import schemas, campuses, models
-from backend.api.blocks import router
-from backend.database import get_db
-from backend.helpers import telegram_user, _get_group_or_404
+import schemas, campuses, models
+from api.blocks import router
+from database import get_db
+from helpers import telegram_user, _get_group_or_404
 
 
 @router.get(

@@ -3,10 +3,10 @@ from typing import Optional
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from backend import schemas, campuses, admin_export, notifier
-from backend.api.admin import router
-from backend.database import get_db
-from backend.helpers import require_admin, optional_telegram_user, _build_export
+import schemas, campuses, admin_export, notifier
+from api.admin import router
+from database import get_db
+from helpers import require_admin, optional_telegram_user, _build_export
 
 
 @router.post("/api/admin/export/send", dependencies=[Depends(require_admin)])

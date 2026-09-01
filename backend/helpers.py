@@ -7,19 +7,17 @@ from fastapi import HTTPException, Header, Depends
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
-from backend import (
-    models,
-    config,
-    campuses,
-    schemas,
-    telegram_auth,
-    storage,
-    notifier,
-    join_flow,
-    block_flow,
-    admin_export,
-)
-from backend.database import get_db
+import models
+import config
+import campuses
+import schemas
+import telegram_auth
+import storage
+import notifier
+import join_flow
+import block_flow
+import admin_export
+from database import get_db
 
 log = logging.getLogger(__name__)
 

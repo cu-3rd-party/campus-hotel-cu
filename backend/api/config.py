@@ -3,9 +3,9 @@ from typing import Optional
 from fastapi import Depends
 from starlette.responses import Response
 
-from backend import schemas, config
-from backend.api import router
-from backend.helpers import optional_telegram_user, _is_admin
+import schemas, config
+from api import router
+from helpers import optional_telegram_user, _is_admin
 
 
 @router.get("/api/config", response_model=schemas.ConfigOut)

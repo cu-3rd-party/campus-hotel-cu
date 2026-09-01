@@ -7,9 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
-from backend import campuses, config, storage
-from backend.api import router as api_router
-from backend.database import Base, engine, wait_for_db
+import campuses, config, storage
+from api import router as api_router
+from database import Base, engine, wait_for_db
 
 log = logging.getLogger(__name__)
 

@@ -5,10 +5,10 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from starlette.responses import Response
 
-from backend import schemas, campuses, models
-from backend.api.admin import router
-from backend.database import get_db
-from backend.helpers import require_admin
+import schemas, campuses, models
+from api.admin import router
+from database import get_db
+from helpers import require_admin
 
 
 @router.get(

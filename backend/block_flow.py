@@ -10,7 +10,7 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from backend import campuses, models
+import campuses, models
 
 PENDING = "pending"
 APPROVED = "approved"

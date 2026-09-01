@@ -3,10 +3,10 @@ from typing import Optional, List
 from fastapi import BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from backend import schemas, models, config, block_flow, notifier
-from backend.api.blocks import router
-from backend.database import get_db
-from backend.helpers import current_profile, _assert_is_me, _get_profile_or_404, _group_msgs, _room_name
+import schemas, models, config, block_flow, notifier
+from api.blocks import router
+from database import get_db
+from helpers import current_profile, _assert_is_me, _get_profile_or_404, _group_msgs, _room_name
 
 
 @router.post("/api/blocks/{block_id}/leave", status_code=204)

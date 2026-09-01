@@ -4,10 +4,10 @@ from fastapi import Depends, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from backend import schemas, campuses, models
-from backend.api.profiles import router
-from backend.database import get_db
-from backend.helpers import telegram_user
+import schemas, campuses, models
+from api.profiles import router
+from database import get_db
+from helpers import telegram_user
 
 
 @router.get(

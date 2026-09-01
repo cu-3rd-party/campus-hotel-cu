@@ -4,10 +4,10 @@ from fastapi import Depends, Query
 from sqlalchemy.orm import Session
 from starlette.responses import Response
 
-from backend import campuses
-from backend.api.admin import router
-from backend.database import get_db
-from backend.helpers import require_admin, _build_export
+import campuses
+from api.admin import router
+from database import get_db
+from helpers import require_admin, _build_export
 
 
 @router.get("/api/admin/export", dependencies=[Depends(require_admin)])

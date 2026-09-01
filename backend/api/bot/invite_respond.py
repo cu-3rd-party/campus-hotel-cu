@@ -1,10 +1,10 @@
 from fastapi import Depends, BackgroundTasks, HTTPException
 from sqlalchemy.orm import Session
 
-from backend import schemas, notifier
-from backend.api.bot import router
-from backend.database import get_db
-from backend.helpers import _check_bot_secret, _find_profile_by_telegram, _get_invite_or_404, \
+import schemas, notifier
+from api.bot import router
+from database import get_db
+from helpers import _check_bot_secret, _find_profile_by_telegram, _get_invite_or_404, \
     _assert_invite_still_valid, _accept_invite, _decline_invite
 
 

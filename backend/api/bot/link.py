@@ -1,10 +1,10 @@
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-from backend import schemas, campuses
-from backend.api.bot import router
-from backend.database import get_db
-from backend.helpers import _check_bot_secret, _find_profile_by_telegram
+import schemas, campuses
+from api.bot import router
+from database import get_db
+from helpers import _check_bot_secret, _find_profile_by_telegram
 
 
 @router.post("/api/bot/link", dependencies=[Depends(_check_bot_secret)])

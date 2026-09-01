@@ -3,10 +3,10 @@ from typing import Optional
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from backend import schemas, models
-from backend.api.groups import router
-from backend.database import get_db
-from backend.helpers import current_profile, _assert_is_me, _get_profile_or_404, _assert_capacity_allowed
+import schemas, models
+from api.groups import router
+from database import get_db
+from helpers import current_profile, _assert_is_me, _get_profile_or_404, _assert_capacity_allowed
 
 
 @router.post("/api/groups", response_model=schemas.GroupOut, status_code=201)
