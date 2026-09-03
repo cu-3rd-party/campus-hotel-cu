@@ -27,7 +27,7 @@ def create_profile(
         if widget_auth:
             verified_user = telegram_auth.verify_login_widget(widget_auth)
         elif init_data:
-            verified_user = telegram_auth.verify_webrouter_init_data(
+            verified_user = telegram_auth.verify_webapp_init_data(
                 init_data
             )  # TODO: это откуда тут
     except telegram_auth.TelegramAuthError as exc:
