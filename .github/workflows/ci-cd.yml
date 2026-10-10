@@ -1,0 +1,79 @@
+name: CI/CD
+
+# push в main: собрать образы и выкатить на dev.
+# Prod — вручную: Actions → CI/CD → Run workflow (main) с галочкой deploy_prod.
+# Деплой = смена тега образов в pxc1984/homelab, дальше Argo CD выкатывает сам
+# (k3s, узел grm, namespace campus-hotel-<env>).
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      deploy_prod:
+        description: 'Deploy to prod (after dev)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.run_id }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    name: Build and push ${{ matrix.service }} image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        service: [ backend, frontend, bot ]
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}-${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.service }}
+          push: true
+          tags: ${{ env.IMAGE }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.IMAGE }}:buildcache,mode=max
+
+  deploy-dev:
+    name: Deploy to dev
+    needs: build
+    concurrency:
+      group: deploy-dev
+      cancel-in-progress: false
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: dev
+    secrets: inherit
+
+  deploy-prod:
+    name: Deploy to prod
+    needs: deploy-dev
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy_prod
+    concurrency:
+      group: deploy-prod
+      cancel-in-progress: false
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: prod
+    secrets: inherit

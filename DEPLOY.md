@@ -1,5 +1,15 @@
 # Деплой на VPS с доменом disk.cu-politic.ru
 
+> **Сейчас dev и prod живут не так.** Стенды `disk.cu-politic.ru` (prod) и
+> `dev.disk.cu3rd.ru` (dev) работают в k3s (GitOps-репозиторий
+> [pxc1984/homelab](https://github.com/pxc1984/homelab), узел grm, namespace
+> `campus-hotel-<env>`). CI ([`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml))
+> собирает образы `ghcr.io/cu-3rd-party/campus-hotel-cu-{backend,frontend,bot}:<sha>`,
+> на push в `main` выкатывает dev, prod — вручную (Run workflow с `deploy_prod`).
+> Секрет окружений `dev`/`prod`: `HOMELAB_DEPLOY_KEY` (deploy key с записью в homelab).
+> Настройки и секреты — в values.yaml приложений в homelab (Sealed Secrets).
+> Инструкция ниже — для самостоятельного развёртывания на отдельном VPS.
+
 Инструкция с нуля: чистый Ubuntu-сервер → работающий сайт с HTTPS и ботом.
 Везде подставляй свой домен, если он отличается от `disk.cu-politic.ru`.
 

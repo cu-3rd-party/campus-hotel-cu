@@ -1,0 +1,55 @@
+name: Deploy
+
+# Деплой через GitOps: образы уже в GHCR, здесь только меняется тег в репозитории
+# pxc1984/homelab (apps/campus-hotel-<env>-{backend,frontend,bot}/values.yaml) — Argo CD сам
+# выкатывает его в k3s. Конфигурация и секреты окружения живут там же (Sealed Secrets).
+# Секрет окружения HOMELAB_DEPLOY_KEY — deploy key с правом записи в pxc1984/homelab.
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+        description: 'Environment name (dev or prod)'
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout homelab
+        uses: actions/checkout@v4
+        with:
+          repository: pxc1984/homelab
+          ssh-key: ${{ secrets.HOMELAB_DEPLOY_KEY }}
+
+      - name: Update image tags
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          TAG: ${{ github.sha }}
+        run: |
+          stack="campus-hotel-${ENVIRONMENT}"
+          for service in backend frontend bot; do
+            values="apps/${stack}-${service}/values.yaml"
+            if [ ! -f "$values" ]; then
+              echo "::error::$values не найден в homelab"
+              exit 1
+            fi
+            sed -i -E "s/^(  tag: )[^ ]+/\1${TAG}/" "$values"
+          done
+          git diff --exit-code && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "${stack}: deploy ${TAG::7}"
+          # параллельный деплой другого приложения мог успеть запушить раньше
+          for attempt in 1 2 3; do
+            git push && exit 0
+            git pull --rebase
+          done
+          exit 1
