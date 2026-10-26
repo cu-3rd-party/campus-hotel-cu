@@ -917,6 +917,23 @@ body {
   border-top: 1px solid var(--border);
   background: var(--surface);
 }
+.footer__projects {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  max-width: 100%;
+  margin-top: 8px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.5;
+  text-transform: none;
+  letter-spacing: normal;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.footer__projects:hover {
+  color: var(--ink);
+}
 
 /* Modal */
 .modal__overlay {

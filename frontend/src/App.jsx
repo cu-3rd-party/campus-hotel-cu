@@ -859,7 +859,8 @@ export default function App() {
       </main>
 
       <footer className="footer">
-        Кампус-отели Диск и Облако · сервис поиска соседей по комнате
+        <span>Кампус-отели Диск и Облако · сервис поиска соседей по комнате</span>
+        <a className="footer__projects" href="https://cu.vubni.ru/" target="_blank" rel="noopener noreferrer">Все проекты · Рядом ↗</a>
       </footer>
 
       {modal === "admin" && (
