@@ -1,9 +1,10 @@
 name: Deploy
 
-# Деплой через GitOps: образы уже в GHCR, здесь только меняется тег в репозитории
-# pxc1984/homelab (apps/campus-hotel-<env>-{backend,frontend,bot}/values.yaml) — Argo CD сам
-# выкатывает его в k3s. Конфигурация и секреты окружения живут там же (Sealed Secrets).
-# Секрет окружения HOMELAB_DEPLOY_KEY — deploy key с правом записи в pxc1984/homelab.
+# Деплой через GitOps: образы уже в реестре git.cu3rd.ru, здесь только меняется образ
+# в репозитории pxc1984/homelab на GitHub (apps/campus-hotel-<env>-{backend,frontend,bot}/values.yaml) —
+# Argo CD сам выкатывает его в k3s. Конфигурация и секреты окружения живут там же (Sealed Secrets).
+# Секрет репозитория HOMELAB_DEPLOY_KEY — deploy key с правом записи в pxc1984/homelab
+# (один на dev и prod: окружений с отдельными секретами в Forgejo Actions нет).
 
 on:
   workflow_call:
@@ -17,19 +18,17 @@ jobs:
   deploy:
     name: Deploy to ${{ inputs.environment }}
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
     timeout-minutes: 15
-    permissions:
-      contents: read
 
     steps:
       - name: Checkout homelab
         uses: actions/checkout@v4
         with:
+          github-server-url: https://github.com
           repository: pxc1984/homelab
           ssh-key: ${{ secrets.HOMELAB_DEPLOY_KEY }}
 
-      - name: Update image tags
+      - name: Update images
         env:
           ENVIRONMENT: ${{ inputs.environment }}
           TAG: ${{ github.sha }}
@@ -41,11 +40,14 @@ jobs:
               echo "::error::$values не найден в homelab"
               exit 1
             fi
-            sed -i -E "s/^(  tag: )[^ ]+/\1${TAG}/" "$values"
+            # repository тоже: при переезде с ghcr.io первый деплой переключает реестр
+            sed -i -E \
+              -e "s|^(  repository: ).*|\1git.cu3rd.ru/cu3rd/campus-hotel-cu-${service}|" \
+              -e "s/^(  tag: )[^ ]+/\1${TAG}/" "$values"
           done
           git diff --exit-code && exit 0
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "forgejo-actions[bot]"
+          git config user.email "cu3rd-ci@noreply.git.cu3rd.ru"
           git commit -am "${stack}: deploy ${TAG::7}"
           # параллельный деплой другого приложения мог успеть запушить раньше
           for attempt in 1 2 3; do
