@@ -1,17 +1,13 @@
+import Brand from "./Brand.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
 import { CAMPUS } from "../labels.js";
 
-export default function GenderGate({ campus, onSelect }) {
+export default function GenderGate({ campus, onBack, onSelect }) {
   return (
     <div className="gate">
-      <div className="gate__theme">
-        <ThemeToggle />
-      </div>
+      <header className="gate__top"><Brand/><ThemeToggle compact/></header>
       <div className="gate__inner">
-        <div className="gate__brand">
-          <span className="gate__logo">🏠</span>
-          Кампус-отель {CAMPUS[campus] || ""}
-        </div>
+        <p className="gate__eyebrow">СОСЕДИ · ДИСК И ОБЛАКО</p>
 
         <h1 className="gate__title">
           С кем ты будешь <span className="accent">жить?</span>
@@ -22,12 +18,13 @@ export default function GenderGate({ campus, onSelect }) {
           Выбери, кого показывать в ленте.
         </p>
 
+        <p className="gate__campus">Кампус-отель «{CAMPUS[campus]}»</p>
         <div className="gate__options">
           <button
             className="gate__option"
             onClick={() => onSelect("male")}
           >
-            <span className="gate__emoji">🧑</span>
+            <img className="gate__drawing" src="/identity/person.svg" alt="" width="56" height="56"/>
             <span className="gate__label">Я парень</span>
             <span className="gate__hint">Показать парней</span>
           </button>
@@ -36,11 +33,12 @@ export default function GenderGate({ campus, onSelect }) {
             className="gate__option"
             onClick={() => onSelect("female")}
           >
-            <span className="gate__emoji">👩</span>
+            <img className="gate__drawing" src="/identity/person.svg" alt="" width="56" height="56"/>
             <span className="gate__label">Я девушка</span>
             <span className="gate__hint">Показать девушек</span>
           </button>
         </div>
+        <button className="gate__back" type="button" onClick={onBack}>← Вернуться назад</button>
       </div>
     </div>
   );

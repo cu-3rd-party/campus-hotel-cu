@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 from fastapi import Depends, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 import schemas, campuses, models
 from api.blocks import router
@@ -20,7 +20,7 @@ def list_blocks(
     campus: Optional[str] = Query(None, pattern=campuses.PATTERN),
 ):
     """Уже собранные блоки — посмотреть, кто с кем объединился."""
-    query = db.query(models.Block)
+    query = db.query(models.Block).options(selectinload(models.Block.groups).selectinload(models.Group.members))
     if gender:
         query = query.filter(models.Block.gender == gender)
     if campus:

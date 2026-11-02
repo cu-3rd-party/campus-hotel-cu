@@ -7,6 +7,7 @@ import {
 } from "../api.js";
 import { CAMPUS } from "../labels.js";
 import { closeWebApp } from "../telegram.js";
+import { useDialogFocus } from "../useDialogFocus.js";
 import { useModalLock } from "../useModalLock.js";
 
 // Что кладём в каждый формат — подписи честно объясняют, что человек получит.
@@ -38,6 +39,8 @@ const VIEWS = [
 
 export default function AdminPanel({ onClose, onChanged }) {
   useModalLock();
+  const dialogRef = useRef(null);
+  useDialogFocus(dialogRef, onClose);
   // Начался ли жест на подложке — иначе окно закрывалось бы от свайпа изнутри.
   const overlayDown = useRef(false);
   const [view, setView] = useState("export");
@@ -135,10 +138,10 @@ export default function AdminPanel({ onClose, onChanged }) {
         if (e.target === e.currentTarget && overlayDown.current) onClose();
       }}
     >
-      <div className="modal modal--admin">
+      <div className="modal modal--admin" ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="admin-modal-heading" tabIndex={-1}>
         <div className="modal__head">
-          <h2>Админка</h2>
-          <button className="modal__close" onClick={onClose}>
+          <h2 id="admin-modal-heading">Админка</h2>
+          <button className="modal__close" type="button" aria-label="Закрыть админку" onClick={onClose}>
             ×
           </button>
         </div>

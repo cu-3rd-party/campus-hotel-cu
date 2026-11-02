@@ -1,3 +1,4 @@
+import { readStored, writeStored } from "./storage.mjs";
 import { useEffect, useState } from "react";
 
 const KEY = "obshaga_theme";
@@ -12,11 +13,11 @@ export function applyTheme(mode) {
 }
 
 export function useTheme() {
-  const [mode, setMode] = useState(() => localStorage.getItem(KEY) || "system");
+  const [mode, setMode] = useState(() => readStored(KEY) || "system");
 
   useEffect(() => {
     applyTheme(mode);
-    localStorage.setItem(KEY, mode);
+    writeStored(KEY, mode);
 
     if (mode === "system") {
       const mq = window.matchMedia("(prefers-color-scheme: dark)");

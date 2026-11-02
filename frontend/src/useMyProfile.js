@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchMyProfileByTelegram, fetchProfile } from "./api.js";
+import { readStored, writeStored, removeStored } from "./storage.mjs";
 import { getInitData, isInsideTelegram } from "./telegram.js";
 
 const KEY = "obshaga_my_profile_id";
@@ -20,7 +21,7 @@ export function useMyProfile() {
     if (isInsideTelegram()) {
       try {
         const mine = await fetchMyProfileByTelegram(getInitData());
-        localStorage.setItem(KEY, String(mine.id));
+        writeStored(KEY, String(mine.id));
         setProfile(mine);
         return mine;
       } catch {
@@ -32,7 +33,7 @@ export function useMyProfile() {
     }
 
     // 2) Обычный браузер (или анкета без привязки к Telegram).
-    const id = localStorage.getItem(KEY);
+    const id = readStored(KEY);
     if (!id) {
       setProfile(null);
       setLoading(false);
@@ -42,10 +43,9 @@ export function useMyProfile() {
       const fresh = await fetchProfile(id);
       setProfile(fresh);
       return fresh;
-    } catch {
-      // Анкету удалили или база пересоздана — забываем протухший id.
-      localStorage.removeItem(KEY);
-      setProfile(null);
+    } catch (error) {
+      if (error.status === 404) { removeStored(KEY); setProfile(null); }
+      // An unavailable server is not evidence that the saved profile was deleted.
       return null;
     } finally {
       setLoading(false);
@@ -57,12 +57,12 @@ export function useMyProfile() {
   }, [reload]);
 
   const remember = useCallback((created) => {
-    localStorage.setItem(KEY, String(created.id));
+    writeStored(KEY, String(created.id));
     setProfile(created);
   }, []);
 
   const forget = useCallback(() => {
-    localStorage.removeItem(KEY);
+    removeStored(KEY);
     setProfile(null);
   }, []);
 

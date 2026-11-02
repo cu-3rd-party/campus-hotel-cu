@@ -43,6 +43,11 @@ import {
 import { getStartParam, initWebApp } from "./telegram.js";
 import { releaseStuckLock } from "./useModalLock.js";
 import { useMyProfile } from "./useMyProfile.js";
+import { useDebouncedValue, useRemoteList } from "./useRemoteList.js";
+import { LatestRequest } from "./request.mjs";
+import { readStored, writeStored, removeStored } from "./storage.mjs";
+import FeedSettings from "./components/FeedSettings.jsx";
+import Brand from "./components/Brand.jsx";
 
 const GENDER_KEY = "obshaga_gender";
 const CAMPUS_KEY = "obshaga_campus";
@@ -77,19 +82,16 @@ function startProfileId() {
 
 export default function App() {
   const [gender, setGender] = useState(
-    () => localStorage.getItem(GENDER_KEY) || ""
+    () => readStored(GENDER_KEY) || ""
   );
   // Кампус-отель. Пока анкеты нет — выбор с первого экрана, дальше главной
   // остаётся анкета: там его и меняют, отсюда мы значение только подхватываем.
   const [campus, setCampus] = useState(
-    () => localStorage.getItem(CAMPUS_KEY) || ""
+    () => readStored(CAMPUS_KEY) || ""
   );
   const [tab, setTab] = useState("singles"); // "singles" | "groups" | "blocks"
 
-  const [profiles, setProfiles] = useState([]);
-  const [groups, setGroups] = useState([]);
   // Собранные блоки: две комнаты по 6 человек вместе. Только в «Диске».
-  const [blocks, setBlocks] = useState([]);
   // Что доступно моей комнате по блокам: с кем можно объединиться и кто уже
   // позвал. Грузим отдельно — это внутреннее дело комнаты, а не общая лента.
   const [blockCandidates, setBlockCandidates] = useState([]);
@@ -100,8 +102,7 @@ export default function App() {
   // Мои исходящие приглашения «давай жить вместе» — чтобы не звать дважды.
   const [myInvites, setMyInvites] = useState([]);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [actionError, setError] = useState("");
   const [modal, setModal] = useState(null); // null | "create" | "edit" | "admin"
   const [busy, setBusy] = useState(false);
   // Админка своя только у владельцев — решает сервер по подписи Telegram.
@@ -121,48 +122,41 @@ export default function App() {
   const scrolledTo = useRef(null);
 
   const { myProfile, loadingMe, remember, forget, reloadMe } = useMyProfile();
+  const searchFilters = useDebouncedValue(filters);
+  const scope = `${gender}:${campus}`;
+  const enabled = Boolean(gender && campus);
+  const peopleFeed = useRemoteList(JSON.stringify(searchFilters), scope,
+    signal => fetchProfiles({ ...searchFilters, gender, campus, without_group: true }, { signal }), enabled);
+  const roomFeed = useRemoteList(scope, scope,
+    signal => fetchGroups({ gender, campus }, { signal }), enabled);
+  const blockFeed = useRemoteList(scope, scope,
+    signal => fetchBlocks({ gender, campus }, { signal }), enabled && campusHasBlocks(campus));
+  const profiles = peopleFeed.data, groups = roomFeed.data, blocks = blockFeed.data;
+  const setProfiles = peopleFeed.setData;
+  const activeFeed = tab === "groups" ? roomFeed : tab === "blocks" ? blockFeed : peopleFeed;
+  const loading = activeFeed.loading && !activeFeed.loaded;
+  const error = actionError || activeFeed.error;
+  const [visibleCount, setVisibleCount] = useState(24);
+  const idealRequest = useRef(new LatestRequest());
+  const inboxVersion = useRef(0);
+  const busyRef = useRef(false);
+  useEffect(() => { setVisibleCount(24); }, [scope, searchFilters, idealOn]);
+  useEffect(() => () => idealRequest.current.cancel(), []);
 
   function chooseGender(value) {
-    localStorage.setItem(GENDER_KEY, value);
+    writeStored(GENDER_KEY, value);
     setGender(value);
   }
 
   function chooseCampus(value) {
-    localStorage.setItem(CAMPUS_KEY, value);
+    writeStored(CAMPUS_KEY, value);
     setCampus(value);
   }
 
   /** Вернуться к выбору кампус-отеля. Только пока анкеты нет: дальше решает она. */
   function resetCampus() {
-    localStorage.removeItem(CAMPUS_KEY);
+    removeStored(CAMPUS_KEY);
     setCampus("");
-  }
-
-  async function load(currentFilters, currentGender, currentCampus) {
-    setLoading(true);
-    setError("");
-    try {
-      // Одиночки — те, кто ещё не в комнате; комнаты и блоки грузим отдельно.
-      const [people, rooms, allBlocks] = await Promise.all([
-        fetchProfiles({
-          ...currentFilters,
-          gender: currentGender,
-          campus: currentCampus,
-          without_group: true,
-        }),
-        fetchGroups({ gender: currentGender, campus: currentCampus }),
-        campusHasBlocks(currentCampus)
-          ? fetchBlocks({ gender: currentGender, campus: currentCampus })
-          : Promise.resolve([]),
-      ]);
-      setProfiles(people);
-      setGroups(rooms);
-      setBlocks(allBlocks);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
   }
 
   /**
@@ -175,20 +169,17 @@ export default function App() {
    * главное: приходит — показываем кнопку, не приходит — просто живём без неё.
    */
   async function loadIdeal(myId) {
-    if (!myId) {
-      setIdealIds([]);
-      return;
-    }
-    try {
-      const ideal = await fetchIdealProfiles(myId);
-      setIdealIds(ideal.map((p) => p.id));
-    } catch {
-      setIdealIds([]);
-    }
+    if (!myId) { idealRequest.current.cancel(); setIdealIds([]); return; }
+    return idealRequest.current.run(
+      signal => fetchIdealProfiles(myId, { signal }),
+      ideal => setIdealIds(ideal.map(profile => profile.id)),
+      () => setIdealIds([]),
+    );
   }
 
   /** Заявки грузим только там, где они нужны: в свою комнату и свои исходящие. */
   async function loadRequests(me) {
+    const version = ++inboxVersion.current;
     if (!me) {
       setIncoming([]);
       setMyRequests([]);
@@ -200,13 +191,15 @@ export default function App() {
     // Блоки касаются только тех, кто уже собрал комнату в отеле с блоками.
     const withBlocks = Boolean(me.group_id) && campusHasBlocks(me.campus);
     try {
-      const [mine, inbox, invites, blockReqs, cands] = await Promise.all([
+      const results = await Promise.allSettled([
         fetchMyRequests(me.id),
         me.group_id ? fetchGroupRequests(me.group_id) : Promise.resolve([]),
         fetchMyInvites(me.id),
         withBlocks ? fetchBlockRequests(me.group_id) : Promise.resolve([]),
         withBlocks ? fetchBlockCandidates(me.group_id) : Promise.resolve([]),
       ]);
+      if (version !== inboxVersion.current) return;
+      const [mine, inbox, invites, blockReqs, cands] = results.map(result => result.status === "fulfilled" ? result.value : []);
       setMyRequests(mine);
       setIncoming(inbox);
       setMyInvites(invites);
@@ -234,15 +227,7 @@ export default function App() {
       .catch(() => setIsAdmin(false));
   }, []);
 
-  // Лента не зависит от того, выяснилось ли уже, кто я: кто угодно должен
-  // увидеть анкеты сразу. Раньше здесь стояло ожидание loadingMe — и если
-  // запрос «кто я» подвисал, лента не запрашивалась вовсе: экран навсегда
-  // оставался на «Загрузка…», высотой ровно в экран, который нечем листать.
-  useEffect(() => {
-    if (!gender || !campus) return;
-    const id = setTimeout(() => load(filters, gender, campus), 250);
-    return () => clearTimeout(id);
-  }, [filters, gender, campus]);
+  // Each feed loads independently through useRemoteList; typing only requests people.
 
   // А вот подсказка про идеальных соседей без анкеты бессмысленна — её и
   // грузим тогда, когда стало известно, кто я. Отдельным запросом, поэтому
@@ -320,6 +305,11 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetId, loadingMe]);
 
+  useEffect(() => {
+    const index = profiles.findIndex(profile => profile.id === highlightId);
+    if (index >= visibleCount) setVisibleCount(Math.ceil((index + 1) / 24) * 24);
+  }, [highlightId, profiles, visibleCount]);
+
   // Анкета доехала до ленты — прокручиваем к ней и снимаем подсветку.
   useEffect(() => {
     if (!highlightId || loading) return;
@@ -339,7 +329,7 @@ export default function App() {
     // Подсветка — подсказка «вот она», а не постоянное состояние карточки.
     const id = setTimeout(() => setHighlightId(null), 2600);
     return () => clearTimeout(id);
-  }, [highlightId, loading, profiles]);
+  }, [highlightId, loading, profiles, visibleCount]);
 
   function handleCreated(profile) {
     setModal(null);
@@ -372,26 +362,21 @@ export default function App() {
   }, [myProfile]);
 
   async function refresh() {
-    const [, me] = await Promise.all([
-      load(filters, gender, campus),
-      reloadMe(),
-    ]);
-    await loadRequests(me || myProfile);
-    // Анкета могла измениться — с ней меняется и список идеальных соседей.
-    await loadIdeal((me || myProfile)?.id);
+    const updates = { singles: peopleFeed.reload(), groups: roomFeed.reload(), blocks: blockFeed.reload() };
+    const me = await reloadMe();
+    void loadRequests(me || myProfile);
+    void loadIdeal((me || myProfile)?.id);
+    // Keep secondary refreshes in the background; the active tab remains usable.
+    await updates[tab];
   }
 
   async function withBusy(action) {
-    setBusy(true);
-    setError("");
-    try {
-      await action();
-      await refresh();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true); setError("");
+    try { await action(); await refresh(); }
+    catch (err) { setError(err.message); }
+    finally { busyRef.current = false; setBusy(false); }
   }
 
   const handleRequest = (groupId) =>
@@ -445,7 +430,7 @@ export default function App() {
   }
 
   if (!gender) {
-    return <GenderGate campus={campus} onSelect={chooseGender} />;
+    return <GenderGate campus={campus} onBack={() => myProfile?.gender ? chooseGender(myProfile.gender) : resetCampus()} onSelect={chooseGender} />;
   }
 
   // Приглашения ко мне — их надо показать в самом приложении: бот доходит
@@ -495,28 +480,11 @@ export default function App() {
     <div className="app">
       <header className="header">
         <div className="header__inner">
-          <div className="header__brand">
-            <span className="header__logo">🏠</span>
-            <div>
-              <h1>Кампус-отель {CAMPUS[campus]}</h1>
-              <p>Найди соседа по комнате</p>
-            </div>
-          </div>
+          <div className="header__brand"><Brand /><span className="header__subject">Соседи <small>{CAMPUS[campus]}</small></span></div>
 
           <div className="header__right">
             <ThemeToggle compact />
-            {isAdmin && (
-              <button
-                className="header__admin"
-                onClick={() => setModal("admin")}
-                title="Выгрузка данных"
-              >
-                <span className="header__admin-full">Админка</span>
-                <span className="header__admin-icon" aria-hidden="true">
-                  ⚙
-                </span>
-              </button>
-            )}
+            <FeedSettings>
             {/* Пока анкеты нет, отель можно перевыбрать здесь. С анкетой
                 она хранится в ней — и меняется только там, чтобы случайное
                 нажатие не выкинуло человека из комнаты. */}
@@ -545,6 +513,19 @@ export default function App() {
               {GENDER_WORD[gender]}
               <span className="header__gender-change">сменить</span>
             </button>
+            {isAdmin && (
+              <button
+                className="header__admin"
+                onClick={() => setModal("admin")}
+                title="Выгрузка данных"
+              >
+                <span className="header__admin-full">Админка</span>
+                <span className="header__admin-icon" aria-hidden="true">
+                  ⚙
+                </span>
+              </button>
+            )}
+            </FeedSettings>
             {myProfile ? (
               <button
                 className="header__cta"
@@ -570,9 +551,9 @@ export default function App() {
 
       <main className="container">
         <div className="hero">
-          <h2 className="hero__title">
+          <h1 className="hero__title">
             Соседи, с которыми <span className="accent">по пути</span>
-          </h2>
+          </h1>
           <p className="hero__sub">
             Кампус-отель «{CAMPUS[campus]}» · комнаты на{" "}
             {campusRoomsText(campus)} человека · только{" "}
@@ -585,10 +566,10 @@ export default function App() {
         {!loadingMe && !myProfile && (
           <div className="promo">
             <div className="promo__text">
-              <strong className="promo__title">Тебя ещё никто не видит</strong>
+              <strong className="promo__title">Давай найдём твоих соседей</strong>
               <span className="promo__sub">
-                Размести анкету — иначе не получится ни написать, ни собрать
-                комнату. Это минута.
+                Расскажи немного о себе: будущим соседям будет проще
+                познакомиться и собрать комнату вместе.
               </span>
             </div>
             <button className="promo__btn" onClick={() => setModal("create")}>
@@ -599,6 +580,7 @@ export default function App() {
 
         <div className="tabs">
           <button
+            aria-pressed={tab === "singles"}
             className={`tabs__btn${tab === "singles" ? " tabs__btn--on" : ""}`}
             onClick={() => setTab("singles")}
           >
@@ -606,6 +588,7 @@ export default function App() {
             <span className="tabs__badge">{profiles.length}</span>
           </button>
           <button
+            aria-pressed={tab === "groups"}
             className={`tabs__btn${tab === "groups" ? " tabs__btn--on" : ""}`}
             onClick={() => setTab("groups")}
           >
@@ -687,10 +670,11 @@ export default function App() {
           />
         )}
 
-        {loading && <p className="state">Загрузка…</p>}
-        {error && <p className="state state--error">{error}</p>}
+        {activeFeed.loading && <p className="feed-status" role="status">{loading ? "Загружаем анкеты и комнаты…" : "Обновляем подборку…"}</p>}
+        {loading && <div className="feed-skeleton" aria-hidden="true">{[1,2,3].map(n => <div key={n}><span /><i /><i /></div>)}</div>}
+        {error && <div className="feed-error" role="alert"><p>{error}</p><button type="button" onClick={() => { setError(""); activeFeed.reload(); }}>Попробовать ещё раз</button></div>}
 
-        {!loading && !error && tab === "singles" && (
+        {!loading && (!error || activeFeed.loaded) && tab === "singles" && (
           <>
             {/* Сколько анкет в ленте, написано на вкладке, а сколько из них
                 идеально подходят — на самой кнопке «идеального соседа».
@@ -708,7 +692,7 @@ export default function App() {
               </p>
             ) : (
               <div className="grid">
-                {shownProfiles.map((p) => (
+                {shownProfiles.slice(0, visibleCount).map((p) => (
                   <RoommateCard
                     key={p.id}
                     profile={p}
@@ -731,10 +715,11 @@ export default function App() {
                 ))}
               </div>
             )}
+            {shownProfiles.length > visibleCount && <div className="feed-more"><p>Показано {Math.min(visibleCount, shownProfiles.length)} из {shownProfiles.length}</p><button type="button" onClick={() => setVisibleCount(count => count + 24)}>Показать ещё 24</button></div>}
           </>
         )}
 
-        {!loading && !error && tab === "blocks" && (
+        {!loading && (!error || activeFeed.loaded) && tab === "blocks" && (
           <BlockPanel
             campus={campus}
             myProfile={myProfile}
@@ -750,7 +735,7 @@ export default function App() {
           />
         )}
 
-        {!loading && !error && tab === "groups" && (
+        {!loading && (!error || activeFeed.loaded) && tab === "groups" && (
           <>
             <div className="groups__top">
               {/* Сколько всего комнат, показывает вкладка. Здесь — только про

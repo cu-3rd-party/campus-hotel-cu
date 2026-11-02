@@ -9,6 +9,7 @@ import {
   updateProfile,
 } from "../api.js";
 import { getInitData, isInsideTelegram } from "../telegram.js";
+import { useDialogFocus } from "../useDialogFocus.js";
 import { useModalLock } from "../useModalLock.js";
 import {
   CAMPUS,
@@ -117,6 +118,8 @@ export default function AddProfileModal({
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const dialogRef = useRef(null);
+  useDialogFocus(dialogRef, onClose, saving || deleting);
   // Начался ли жест именно на подложке — см. обработчики ниже.
   const overlayDown = useRef(false);
 
@@ -290,13 +293,13 @@ export default function AddProfileModal({
         // Закрываем только по настоящему клику мимо окна. Раньше хватало
         // «отпустить палец» за краем формы — и заполненная анкета пропадала,
         // хотя человек всего лишь листал её движением из середины.
-        if (e.target === e.currentTarget && overlayDown.current) onClose();
+        if (e.target === e.currentTarget && overlayDown.current && !saving && !deleting) onClose();
       }}
     >
-      <div className="modal">
+      <div className="modal" ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="profile-modal-heading" tabIndex={-1}>
         <div className="modal__head">
-          <h2>{isEdit ? "Моя анкета" : "Разместить анкету"}</h2>
-          <button className="modal__close" onClick={onClose}>
+          <h2 id="profile-modal-heading">{isEdit ? "Моя анкета" : "Разместить анкету"}</h2>
+          <button className="modal__close" type="button" aria-label="Закрыть анкету" disabled={saving || deleting} onClick={onClose}>
             ×
           </button>
         </div>

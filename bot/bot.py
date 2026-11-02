@@ -12,6 +12,8 @@ import asyncio
 import html
 import logging
 import os
+import re
+from contextlib import asynccontextmanager
 
 import httpx
 from aiogram import Bot, Dispatcher, F
@@ -19,7 +21,8 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode
 from aiogram.filters import Command
-from aiogram.types import CallbackQuery, Message
+from aiogram.exceptions import TelegramBadRequest
+from aiogram.types import CallbackQuery, Message, BotCommand
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("bot")
@@ -46,9 +49,34 @@ def h(value) -> str:
     return html.escape(str(value or ""))
 
 
-def api_client() -> httpx.AsyncClient:
-    return httpx.AsyncClient(
-        base_url=API_URL, timeout=10, headers={"X-Bot-Secret": BOT_SECRET}
+_api = None
+
+
+@asynccontextmanager
+async def api_client():
+    # One pool for the process: repeated callbacks reuse the backend connection.
+    if _api is not None:
+        yield _api
+    else:
+        async with httpx.AsyncClient(base_url=API_URL, timeout=10, headers={"X-Bot-Secret": BOT_SECRET}) as client:
+            yield client
+
+
+def search_keyboard():
+    if not SITE_URL.startswith("https://"):
+        return None
+    return {"inline_keyboard": [[{"text": "Открыть поиск соседей", "web_app": {"url": SITE_URL}}]]}
+
+
+@dp.message(Command("search", "help"))
+async def cmd_help(message: Message):
+    await message.answer(
+        "<b>Рядом · Соседи</b>\n\n"
+        "Открой поиск, выбери Диск или Облако и расскажи немного о себе. "
+        "Сравнивай привычки, знакомься и собирай комнату по взаимному согласию.\n\n"
+        "/pending — заявки, которые ждут твоего решения\n"
+        "/start — проверить привязку анкеты и уведомления",
+        reply_markup=search_keyboard(),
     )
 
 
@@ -77,23 +105,25 @@ async def cmd_start(message: Message):
         # только по нику. Теперь мини-апп подтверждает человека подписью
         # Telegram и подставляет ник с фото сам — просить больше нечего.
         await message.answer(
-            "👋 Привет! Я бот <b>кампус-отелей Диск и Облако</b>.\n\n"
+            "Привет! Это <b>Рядом · Соседи</b> для Диска и Облака.\n\n"
             "Не нашёл твою анкету. Открой приложение кнопкой снизу — рядом с "
             "полем ввода — и заполни анкету: имя, фото и ник подтянутся из "
             "Telegram сами.\n\n"
-            "После этого уведомления включатся автоматически."
+            "После этого уведомления включатся автоматически.",
+            reply_markup=search_keyboard(),
         )
         return
 
     profile = data["profile"]
-    campus = profile.get("campus")
+    campus = {"disk": "Диск", "cloud": "Облако"}.get(profile.get("campus"))
     where = f" Ты в кампус-отеле <b>{campus}</b>." if campus else ""
     await message.answer(
         f"✅ Привет, {h(profile['name'])}! Уведомления включены.{where}\n\n"
         "Буду писать, когда кто-то попросится к тебе в комнату, когда твою "
         "заявку рассмотрят, когда сосед выйдет из комнаты и когда в ней "
         "изменят число мест.\n\n"
-        "/pending — заявки, ждущие твоего решения"
+        "/pending — заявки, ждущие твоего решения",
+        reply_markup=search_keyboard(),
     )
 
 
@@ -135,128 +165,71 @@ async def cmd_pending(message: Message):
         )
 
 
+def decision_tail(kind, data):
+    status = data["status"]
+    if kind == "invite":
+        return f"Комната на {data['capacity']} создана. Можно знакомиться!" if status == "accepted" else "Приглашение отклонено."
+    if kind == "block":
+        if status == "approved": return "Блок собран — все согласились."
+        if status == "rejected": return "Объединение в блок отклонено."
+    else:
+        if status == "approved": return f"{h(data['who'])} принят(а) — все согласились."
+        if status == "rejected": return f"Заявка {h(data['who'])} отклонена."
+    return f"Твой голос учтён: {data['votes_done']} из {data['votes_needed']}. Ждём остальных."
+
+
+async def apply_decision(call, kind):
+    match = re.fullmatch(rf"{kind}:(\d+):(yes|no)", call.data or "")
+    if not match:
+        await call.answer("Эта кнопка устарела. Открой /pending.", show_alert=True)
+        return
+    # Stop Telegram's spinner before waiting for the API, rather than 10s later.
+    await call.answer("Проверяем и сохраняем ответ…")
+    item_id, decision = match.groups()
+    payload = {"telegram_id": call.from_user.id,
+               "invite_id" if kind == "invite" else "request_id": int(item_id),
+               "accept" if kind == "invite" else "approve": decision == "yes"}
+    try:
+        async with api_client() as client:
+            response = await client.post(f"/api/bot/{kind}", json=payload)
+        data = response.json()
+    except (httpx.HTTPError, ValueError):
+        if call.message:
+            await call.message.answer("Сервер отвечает дольше обычного. Открой /pending или приложение, чтобы проверить результат перед повтором.", reply_markup=search_keyboard())
+        return
+    if response.status_code != 200:
+        detail = data.get("detail", "Не получилось сохранить ответ. Открой /pending.")
+        if not isinstance(detail, str): detail = "Не получилось сохранить ответ. Открой /pending."
+        if call.message:
+            if response.status_code == 409:
+                try: await call.message.edit_reply_markup(reply_markup=None)
+                except TelegramBadRequest: pass
+            await call.message.answer(h(detail))
+        return
+    if call.message:
+        try:
+            await call.message.edit_text(f"{call.message.html_text}\n\n{decision_tail(kind, data)}", reply_markup=None)
+        except TelegramBadRequest:
+            await call.message.answer(decision_tail(kind, data), reply_markup=search_keyboard())
+
+
 @dp.callback_query(F.data.startswith("invite:"))
 async def on_invite(call: CallbackQuery):
-    """«Давай жить вместе»: комната создаётся только по согласию."""
-    _, invite_id, decision = call.data.split(":")
-    accept = decision == "yes"
-
-    async with api_client() as client:
-        try:
-            resp = await client.post(
-                "/api/bot/invite",
-                json={
-                    "telegram_id": call.from_user.id,
-                    "invite_id": int(invite_id),
-                    "accept": accept,
-                },
-            )
-        except httpx.HTTPError:
-            await call.answer("Сайт недоступен, попробуй позже", show_alert=True)
-            return
-
-    if resp.status_code != 200:
-        detail = resp.json().get("detail", "Не получилось")
-        await call.answer(detail, show_alert=True)
-        if resp.status_code == 409:
-            await call.message.edit_reply_markup(reply_markup=None)
-        return
-
-    data = resp.json()
-    if data["status"] == "accepted":
-        tail = f"🤝 Готово — комната на {data['capacity']} создана."
-    else:
-        tail = "✖️ Ты отказал(а)ся."
-
-    await call.answer("Готово")
-    await call.message.edit_text(f"{call.message.html_text}\n\n{tail}")
+    await apply_decision(call, "invite")
 
 
 @dp.callback_query(F.data.startswith("block:"))
 async def on_block(call: CallbackQuery):
-    """Объединение комнат в блок: решают все жильцы позванной комнаты."""
-    _, request_id, decision = call.data.split(":")
-    approve = decision == "yes"
-
-    async with api_client() as client:
-        try:
-            resp = await client.post(
-                "/api/bot/block",
-                json={
-                    "telegram_id": call.from_user.id,
-                    "request_id": int(request_id),
-                    "approve": approve,
-                },
-            )
-        except httpx.HTTPError:
-            await call.answer("Сайт недоступен, попробуй позже", show_alert=True)
-            return
-
-    if resp.status_code != 200:
-        detail = resp.json().get("detail", "Не получилось")
-        await call.answer(detail, show_alert=True)
-        if resp.status_code == 409:
-            await call.message.edit_reply_markup(reply_markup=None)
-        return
-
-    data = resp.json()
-    if data["status"] == "approved":
-        tail = "🧩 Блок собран — все согласились."
-    elif data["status"] == "rejected":
-        tail = "✖️ Объединение в блок отклонено."
-    else:
-        tail = (
-            f"Твой голос учтён: {data['votes_done']} из {data['votes_needed']}. "
-            "Ждём остальных из твоей комнаты."
-        )
-
-    await call.answer("Готово")
-    await call.message.edit_text(f"{call.message.html_text}\n\n{tail}")
+    await apply_decision(call, "block")
 
 
 @dp.callback_query(F.data.startswith("vote:"))
 async def on_vote(call: CallbackQuery):
-    _, request_id, decision = call.data.split(":")
-    approve = decision == "yes"
-
-    async with api_client() as client:
-        try:
-            resp = await client.post(
-                "/api/bot/vote",
-                json={
-                    "telegram_id": call.from_user.id,
-                    "request_id": int(request_id),
-                    "approve": approve,
-                },
-            )
-        except httpx.HTTPError:
-            await call.answer("Сайт недоступен, попробуй позже", show_alert=True)
-            return
-
-    if resp.status_code != 200:
-        detail = resp.json().get("detail", "Не получилось")
-        await call.answer(detail, show_alert=True)
-        # Заявку уже закрыли — убираем кнопки, чтобы не жали впустую.
-        if resp.status_code == 409:
-            await call.message.edit_reply_markup(reply_markup=None)
-        return
-
-    data = resp.json()
-    if data["status"] == "approved":
-        tail = f"✅ {h(data['who'])} принят(а) — все согласились."
-    elif data["status"] == "rejected":
-        tail = f"✖️ Заявка {h(data['who'])} отклонена."
-    else:
-        tail = (
-            f"Твой голос учтён: {data['votes_done']} из {data['votes_needed']}. "
-            "Ждём остальных."
-        )
-
-    await call.answer("Готово")
-    await call.message.edit_text(f"{call.message.html_text}\n\n{tail}")
+    await apply_decision(call, "vote")
 
 
 async def main():
+    global _api
     if not TOKEN:
         raise SystemExit("Нет TELEGRAM_BOT_TOKEN — боту нечего делать")
     if not BOT_SECRET:
@@ -275,7 +248,21 @@ async def main():
     # На всякий случай снимаем вебхук: мы работаем на long polling.
     await bot.delete_webhook(drop_pending_updates=False)
     log.info("Бот запущен, слушаю обновления")
-    await dp.start_polling(bot)
+    await bot.set_my_commands([
+        BotCommand(command="search", description="Открыть поиск соседей"),
+        BotCommand(command="pending", description="Заявки, ожидающие решения"),
+        BotCommand(command="start", description="Анкета и уведомления"),
+        BotCommand(command="help", description="Как найти соседей"),
+    ])
+    async with httpx.AsyncClient(base_url=API_URL, timeout=httpx.Timeout(10, connect=3),
+                                 headers={"X-Bot-Secret": BOT_SECRET},
+                                 limits=httpx.Limits(max_connections=20, max_keepalive_connections=10)) as client:
+        _api = client
+        try:
+            await dp.start_polling(bot)
+        finally:
+            _api = None
+            await bot.session.close()
 
 
 if __name__ == "__main__":

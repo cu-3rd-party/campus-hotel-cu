@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 from fastapi import Depends, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 import schemas, models, campuses
 from api.groups import router
@@ -20,7 +20,7 @@ def list_groups(
     campus: Optional[str] = Query(None, pattern=campuses.PATTERN),
     only_open: Optional[bool] = Query(None, description="true — только с местами"),
 ):
-    query = db.query(models.Group)
+    query = db.query(models.Group).options(selectinload(models.Group.members))
     if gender:
         query = query.filter(models.Group.gender == gender)
     if campus:

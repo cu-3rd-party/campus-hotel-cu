@@ -65,7 +65,7 @@ export default function RoommateCard({
       <div className="card__top">
         <div className="card__photo">
           {photo_url ? (
-            <img src={photo_url} alt={name} loading="lazy" />
+            <img src={photo_url} alt={name} loading="lazy" decoding="async" width="96" height="96" />
           ) : (
             <div className="card__placeholder">{initials(name)}</div>
           )}
@@ -87,7 +87,7 @@ export default function RoommateCard({
 
           {ideal && (
             <span className="card__ideal" title="Совпали все твои параметры">
-              ✨ Идеальный сосед
+              Совпадают привычки
             </span>
           )}
 
@@ -138,7 +138,7 @@ export default function RoommateCard({
         className="card__tg"
         href={`https://t.me/${telegram}`}
         target="_blank"
-        rel="noreferrer"
+        rel="noopener noreferrer"
       >
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
           <path
