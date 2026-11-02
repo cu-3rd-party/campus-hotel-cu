@@ -11,6 +11,7 @@ name: CI/CD
 # переменная организации REGISTRY_USER и секрет организации REGISTRY_TOKEN.
 
 on:
+  pull_request:
   push:
     branches: [ main ]
   workflow_dispatch:
@@ -25,8 +26,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  check:
+    name: Check feeds, bot and interface
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install exact application dependencies
+        run: |
+          python -c 'import subprocess,sys,tomllib; d=tomllib.load(open("backend/pyproject.toml","rb")); subprocess.check_call([sys.executable,"-m","pip","install",*d["project"]["dependencies"]])'
+          python -m pip install -r bot/requirements.txt
+          npm ci --prefix frontend --no-audit --no-fund
+      - name: Verify request cancellation, query counts and callbacks locally
+        run: |
+          npm test --prefix frontend
+          python -m unittest discover -s tests -v
+          python -m compileall -q backend bot
+          npm run build --prefix frontend
   build:
     name: Build and push ${{ matrix.service }} image
+    needs: check
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -52,6 +78,7 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.service }}
+          build-args: RELEASE_ID=${{ github.sha }}
           push: true
           tags: ${{ env.IMAGE }}:${{ github.sha }}
           labels: |

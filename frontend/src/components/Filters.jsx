@@ -150,7 +150,8 @@ export default function Filters({
         <input
           className="filters__search"
           type="text"
-          placeholder="Поиск по имени и описанию…"
+          placeholder="Имя или пара слов о себе"
+          aria-label="Поиск соседей по имени и описанию"
           value={filters.search}
           onChange={set("search")}
         />
@@ -184,7 +185,7 @@ export default function Filters({
       {open && (
         <div className="filters__panel">
           {selects.map(([key, anyLabel, options]) => (
-            <select key={key} value={filters[key]} onChange={set(key)}>
+            <select key={key} aria-label={anyLabel} value={filters[key]} onChange={set(key)}>
               <option value="">{anyLabel}</option>
               {options.map(([value, label]) => (
                 <option key={value} value={value}>

@@ -1,4 +1,5 @@
 FROM node:24-alpine AS build
+ARG RELEASE_ID=development
 
 WORKDIR /app
 COPY package*.json ./
@@ -8,6 +9,7 @@ RUN --mount=type=cache,target=/root/.npm \
     npm ci
 COPY . .
 RUN npm run build
+RUN node -e 'require("node:fs").writeFileSync("dist/version.json", JSON.stringify({commit: process.env.RELEASE_ID || "development"}))'
 
 FROM nginx:alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
