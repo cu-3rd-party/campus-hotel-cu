@@ -108,5 +108,9 @@ test('Forgejo deployment is two real runner jobs with scoped checkouts and manua
   assert(block.includes('--environment '+environment+' --tag "$TAG"'));assert(block.includes('group: deploy-'+environment));assert(block.includes('needs: '+(environment==='dev'?'build':'deploy-dev')));
   if(environment==='prod')assert.match(block,/if: github.event_name == 'workflow_dispatch' && \(inputs.deploy_prod == true \|\| inputs.deploy_prod == 'true'\)/);
  }
+ for(const id of ['check','build','deploy-dev','deploy-prod']){
+  const block=text.match(new RegExp('^  '+id+':\\n([\\s\\S]*?)(?=^  [a-z-]+:|$(?![\\s\\S]))','m'))?.[1];assert(block);
+  assert(block.includes('container:\n      image: ghcr.io/catthehacker/ubuntu@sha256:62d572b92f9f32d3427b6d220ad1f9dca9c7b6ffad37d295425037dbff78abaf'));
+ }
  assert(text.includes('run: node --test scripts/deploy-images.test.mjs'));
 });
