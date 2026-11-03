@@ -1,0 +1,11 @@
+.git
+.env*
+.venv
+.runtime
+output
+.playwright-cli
+**/node_modules
+**/__pycache__
+**/*.pyc
+frontend/dist
+backend/venv
