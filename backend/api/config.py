@@ -26,4 +26,6 @@ def get_config(
         # Кнопку админки показываем только своим. Это лишь про интерфейс —
         # сами ручки проверяют подпись отдельно (см. require_admin).
         is_admin=_is_admin(user),
+        development_mode=config.development_auth_enabled(),
+        telegram_app_url=config.miniapp_url(),
     )

@@ -2,6 +2,7 @@ from datetime import datetime
 from html import escape
 from typing import Optional, List
 import logging
+import hmac
 
 from fastapi import HTTPException, Header, Depends
 from sqlalchemy.orm import Session
@@ -57,11 +58,11 @@ TRACK_LABEL = {
 def _assert_is_me(actor: Optional[models.Profile], profile_id: int) -> None:
     """Запрещает действовать от чужого имени.
 
-    actor is None — токен бота не настроен, проверка отключена.
+    None допустим только при явном включении локального fixture-режима.
     """
-    if actor is None:
+    if actor is None and config.development_auth_enabled():
         return
-    if actor.id != profile_id:
+    if actor is None or actor.id != profile_id:
         raise HTTPException(
             status_code=403, detail="Можно действовать только от своего имени"
         )
@@ -69,9 +70,7 @@ def _assert_is_me(actor: Optional[models.Profile], profile_id: int) -> None:
 
 def _is_admin(user: Optional[dict]) -> bool:
     if user is None:
-        # Токена бота нет — подписи не проверяются, это только локальная
-        # разработка. На проде токен есть всегда, иначе не работает вход.
-        return not config.TELEGRAM_BOT_TOKEN
+        return False
     return int(user["id"]) in config.ADMIN_TELEGRAM_IDS
 
 
@@ -232,7 +231,9 @@ def _who(profile: models.Profile) -> str:
 
 def _msg(chat_id: Optional[int], text: str, reply_markup: Optional[dict] = None):
     """Один пункт для фоновой рассылки; без chat_id (не нажали /start) — пропуск."""
-    return {"chat_id": chat_id, "text": text, "reply_markup": reply_markup}
+    # Old /start calls in a group must not route private decisions to that group.
+    target = chat_id if isinstance(chat_id, int) and chat_id > 0 else None
+    return {"chat_id": target, "text": text, "reply_markup": reply_markup}
 
 
 def _request_msgs(req: models.JoinRequest) -> List[dict]:
@@ -678,28 +679,24 @@ def _apply_block_vote(
 def _check_bot_secret(x_bot_secret: Optional[str] = Header(None)) -> None:
     if not config.BOT_SECRET:
         raise HTTPException(status_code=503, detail="BOT_SECRET не настроен")
-    if x_bot_secret != config.BOT_SECRET:
+    if not x_bot_secret or not hmac.compare_digest(x_bot_secret.encode(), config.BOT_SECRET.encode()):
         raise HTTPException(status_code=401, detail="Неверный секрет бота")
 
 
 def _find_profile_by_telegram(
     db: Session, telegram_id: int, username: Optional[str]
 ) -> Optional[models.Profile]:
-    """Ищем анкету: сначала по подтверждённому telegram_id, потом по нику."""
+    """Only the immutable Telegram ID establishes ownership, never a username.
+
+    Usernames change and are reassigned. Legacy unlinked profiles stay intact;
+    an administrator must verify recovery rather than silently granting access.
+    """
     profile = (
         db.query(models.Profile)
         .filter(models.Profile.telegram_id == telegram_id)
         .first()
     )
-    if profile:
-        return profile
-    if username:
-        return (
-            db.query(models.Profile)
-            .filter(models.Profile.telegram.ilike(username.lstrip("@")))
-            .first()
-        )
-    return None
+    return profile
 
 
 async def _fill_missing_usernames(db: Session, profiles: List[models.Profile]) -> None:
@@ -789,11 +786,12 @@ def telegram_user(
 ) -> Optional[dict]:
     """Проверенные данные Telegram из заголовка.
 
-    Возвращает None, если проверка выключена (нет токена бота) — иначе
-    локальная разработка и тесты стали бы невозможны.
+    None — только явно включённая локальная разработка, не отсутствие токена.
     """
     if not config.TELEGRAM_BOT_TOKEN:
-        return None
+        if config.development_auth_enabled():
+            return None
+        raise HTTPException(status_code=503, detail="Вход временно недоступен. Попробуй позже.")
     if not x_telegram_init_data:
         raise HTTPException(status_code=401, detail="Нужен вход через Telegram")
     try:
@@ -809,7 +807,10 @@ def current_profile(
     """Анкета того, кто сейчас делает запрос (None — проверка выключена)."""
     if user is None:
         return None
-    return _find_profile_by_telegram(db, int(user["id"]), user.get("username"))
+    profile = _find_profile_by_telegram(db, int(user["id"]), user.get("username"))
+    if profile is None:
+        raise HTTPException(status_code=403, detail="Сначала создай свою анкету в Telegram.")
+    return profile
 
 
 def require_admin(user: Optional[dict] = Depends(optional_telegram_user)) -> None:

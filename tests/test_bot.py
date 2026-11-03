@@ -9,6 +9,22 @@ import httpx
 from bot import bot
 
 class BotTests(IsolatedAsyncioTestCase):
+    async def test_private_pending_handles_accounts_without_public_username(self):
+        response=httpx.Response(200,json={'requests':[{'id':7,'who':'Fixture <name>','capacity':3,'telegram':''}]},request=httpx.Request('GET','https://fixture.invalid'))
+        get=AsyncMock(return_value=response)
+        @asynccontextmanager
+        async def client():yield SimpleNamespace(get=get)
+        message=SimpleNamespace(chat=SimpleNamespace(type='private'),from_user=SimpleNamespace(id=111),answer=AsyncMock())
+        with patch.object(bot,'api_client',client):await bot.cmd_pending(message)
+        self.assertIn('Публичный ник не указан',message.answer.call_args.args[0])
+        self.assertIn('&lt;name&gt;',message.answer.call_args.args[0])
+    async def test_group_commands_neither_link_notifications_nor_reveal_private_requests(self):
+        message = SimpleNamespace(chat=SimpleNamespace(id=-100123, type='supergroup'),answer=AsyncMock())
+        with patch.object(bot, 'api_client') as client:
+            for command in (bot.cmd_start, bot.cmd_pending, bot.cmd_help):
+                await command(message)
+            client.assert_not_called()
+        self.assertEqual(message.answer.await_count, 3)
     async def test_callback_acknowledges_before_waiting_for_backend_and_preserves_actor(self):
         order = []
         async def ack(*args, **kwargs): order.append('ack')

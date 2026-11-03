@@ -30,7 +30,7 @@ def list_ideal_profiles(
     # На проде «кто я» решает подпись Telegram. Без токена бота подписи нет
     # вовсе (локальная разработка) — только там верим параметру из адреса,
     # иначе им можно было бы спрашивать за других.
-    if me is None and profile_id and not config.TELEGRAM_BOT_TOKEN:
+    if me is None and profile_id and config.development_auth_enabled():
         me = db.query(models.Profile).filter(models.Profile.id == profile_id).first()
     if me is None:
         return []

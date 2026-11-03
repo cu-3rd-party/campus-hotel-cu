@@ -79,7 +79,15 @@ def _when(value: Optional[datetime]) -> str:
 
 
 def _link(username: str) -> str:
-    return f"https://t.me/{username}" if username else ""
+    import re
+    return f"https://t.me/{username}" if re.fullmatch(r"[A-Za-z0-9_]{1,32}", username or "") else ""
+
+
+def _csv_cell(value):
+    # CSV quoting alone does not stop spreadsheet formula execution.
+    if isinstance(value, str) and value.lstrip().startswith(("=", "+", "-", "@")):
+        return "'" + value
+    return value
 
 
 def users_table(profiles: List[models.Profile], scope: str) -> tuple[list, list]:
@@ -272,6 +280,9 @@ def to_xlsx(
         sheet.append(headers)
         for row in rows:
             sheet.append(row)
+            for cell in sheet[sheet.max_row]:
+                if isinstance(cell.value, str):
+                    cell.data_type = "s"
 
         for cell in sheet[1]:
             cell.font = Font(bold=True)
@@ -311,7 +322,7 @@ def to_csv_zip(
             text = io.StringIO()
             writer = csv.writer(text, delimiter=";", lineterminator="\r\n")
             writer.writerow(headers)
-            writer.writerows(rows)
+            writer.writerows([_csv_cell(value) for value in row] for row in rows)
             zf.writestr(name, "﻿" + text.getvalue())
     return archive.getvalue()
 

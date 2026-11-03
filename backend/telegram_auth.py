@@ -3,8 +3,9 @@ import hashlib
 import hmac
 import json
 import time
+import re
 from typing import Optional
-from urllib.parse import parse_qsl
+from urllib.parse import parse_qsl, urlsplit, urljoin
 
 import httpx
 
@@ -25,6 +26,8 @@ def _data_check_string(payload: dict) -> str:
 
 
 def _matches(data_check_string: str, secret_key: bytes, provided_hash: str) -> bool:
+    if not isinstance(provided_hash, str) or not re.fullmatch(r"[0-9a-f]{64}", provided_hash):
+        return False
     calculated = hmac.new(
         secret_key, data_check_string.encode("utf-8"), hashlib.sha256
     ).hexdigest()
@@ -32,12 +35,28 @@ def _matches(data_check_string: str, secret_key: bytes, provided_hash: str) -> b
 
 
 def _check_age(auth_date) -> None:
+    if isinstance(auth_date, bool) or not re.fullmatch(r"[0-9]{1,12}", str(auth_date)):
+        raise TelegramAuthError("Некорректный auth_date")
     try:
         issued = int(auth_date)
     except (TypeError, ValueError):
         raise TelegramAuthError("Некорректный auth_date")
-    if time.time() - issued > AUTH_MAX_AGE_SECONDS:
+    age = time.time() - issued
+    if age < -60:
+        raise TelegramAuthError("Некорректное время входа Telegram, открой приложение заново")
+    if age > AUTH_MAX_AGE_SECONDS:
         raise TelegramAuthError("Подпись Telegram устарела, войди заново")
+
+
+def _check_user(user: dict) -> dict:
+    if not isinstance(user, dict) or type(user.get("id")) is not int or not 0 < user["id"] < 2**52:
+        raise TelegramAuthError("Некорректные данные пользователя Telegram")
+    for field in ("username", "first_name", "last_name", "photo_url"):
+        if field in user and (not isinstance(user[field], str) or len(user[field]) > 2048):
+            raise TelegramAuthError("Некорректные данные пользователя Telegram")
+    if user.get("username") and not re.fullmatch(r"[A-Za-z0-9_]{1,32}", user["username"]):
+        raise TelegramAuthError("Некорректный ник пользователя Telegram")
+    return user
 
 
 def verify_login_widget(data: dict) -> dict:
@@ -49,6 +68,8 @@ def verify_login_widget(data: dict) -> dict:
     if not TELEGRAM_BOT_TOKEN:
         raise TelegramAuthError("Вход через Telegram не настроен на сервере")
 
+    if not isinstance(data, dict) or len(str(data)) > 16384:
+        raise TelegramAuthError("Некорректные данные входа")
     payload = {k: v for k, v in data.items() if v is not None}
     provided = payload.pop("hash", None)
     if not provided:
@@ -59,7 +80,7 @@ def verify_login_widget(data: dict) -> dict:
         raise TelegramAuthError("Подпись Telegram не совпала")
 
     _check_age(payload.get("auth_date"))
-    return payload
+    return _check_user(payload)
 
 
 def verify_webapp_init_data(init_data: str) -> dict:
@@ -72,8 +93,14 @@ def verify_webapp_init_data(init_data: str) -> dict:
     if not TELEGRAM_BOT_TOKEN:
         raise TelegramAuthError("Вход через Telegram не настроен на сервере")
 
+    if not isinstance(init_data, str) or len(init_data) > 16384:
+        raise TelegramAuthError("Некорректный initData")
+
     try:
-        pairs = dict(parse_qsl(init_data, strict_parsing=True))
+        values = parse_qsl(init_data, strict_parsing=True, keep_blank_values=True, max_num_fields=32)
+        pairs = dict(values)
+        if len(values) != len(pairs):
+            raise ValueError("duplicate fields")
     except ValueError:
         raise TelegramAuthError("Некорректный initData")
 
@@ -95,7 +122,7 @@ def verify_webapp_init_data(init_data: str) -> dict:
         raise TelegramAuthError("Некорректные данные пользователя")
     if not user:
         raise TelegramAuthError("Telegram не передал данные пользователя")
-    return user
+    return _check_user(user)
 
 
 async def fetch_profile_photos(
@@ -116,7 +143,7 @@ async def fetch_profile_photos(
     files = f"https://api.telegram.org/file/bot{TELEGRAM_BOT_TOKEN}"
     try:
         async with httpx.AsyncClient(
-            timeout=15, follow_redirects=True, proxy=TELEGRAM_PROXY_URL
+            timeout=15, follow_redirects=False, proxy=TELEGRAM_PROXY_URL
         ) as client:
             resp = await client.get(
                 f"{api}/getUserProfilePhotos",
@@ -143,10 +170,15 @@ async def fetch_profile_photos(
                 path = info.json()["result"].get("file_path")
                 if not path:
                     return None
-                blob = await client.get(f"{files}/{path}")
-                if blob.status_code != 200 or len(blob.content) > MAX_UPLOAD_BYTES:
-                    return None
-                return blob.content
+                async with client.stream("GET", f"{files}/{path}") as blob:
+                    if blob.status_code != 200:
+                        return None
+                    raw = bytearray()
+                    async for chunk in blob.aiter_bytes():
+                        raw.extend(chunk)
+                        if len(raw) > MAX_UPLOAD_BYTES:
+                            return None
+                    return bytes(raw)
 
             # Параллельно: последовательное скачивание заметно медленнее.
             loaded = await asyncio.gather(
@@ -211,13 +243,24 @@ async def download_avatar(url: str) -> Optional[bytes]:
     Ссылки t.me/i/userpic/... живут недолго, поэтому картинку сохраняем у себя.
     """
     try:
-        async with httpx.AsyncClient(
-            timeout=10, follow_redirects=True, proxy=TELEGRAM_PROXY_URL
-        ) as client:
-            resp = await client.get(url)
-            resp.raise_for_status()
-            if len(resp.content) > MAX_UPLOAD_BYTES:
-                return None
-            return resp.content
-    except (httpx.HTTPError, httpx.InvalidURL):
+        async with httpx.AsyncClient(timeout=10, follow_redirects=False, proxy=TELEGRAM_PROXY_URL) as client:
+            for _ in range(4):
+                target = urlsplit(url)
+                host = target.hostname or ""
+                allowed = (host == "t.me" and target.path.startswith("/i/userpic/")) or host == "telegram-cdn.org" or bool(re.fullmatch(r"cdn[0-9]+\.telegram-cdn\.org", host))
+                if target.scheme != "https" or target.port not in (None, 443) or target.username or target.password or not allowed:
+                    return None
+                async with client.stream("GET", url) as resp:
+                    if resp.is_redirect:
+                        url = urljoin(url, resp.headers.get("location", ""))
+                        continue
+                    resp.raise_for_status()
+                    raw = bytearray()
+                    async for chunk in resp.aiter_bytes():
+                        raw.extend(chunk)
+                        if len(raw) > MAX_UPLOAD_BYTES:
+                            return None
+                    return bytes(raw)
+            return None
+    except (httpx.HTTPError, httpx.InvalidURL, ValueError):
         return None

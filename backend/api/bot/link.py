@@ -1,4 +1,4 @@
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
 import schemas, campuses
@@ -10,13 +10,13 @@ from helpers import _check_bot_secret, _find_profile_by_telegram
 @router.post("/api/bot/link", dependencies=[Depends(_check_bot_secret)])
 def bot_link(payload: schemas.BotLink, db: Session = Depends(get_db)):
     """/start у бота: запоминаем chat_id, чтобы было куда слать уведомления."""
+    if payload.chat_id != payload.telegram_id or payload.chat_id <= 0:
+        raise HTTPException(status_code=400, detail="Уведомления подключаются только в личном чате с ботом.")
     profile = _find_profile_by_telegram(db, payload.telegram_id, payload.username)
     if not profile:
         return {"linked": False, "profile": None}
 
     profile.telegram_chat_id = payload.chat_id
-    if not profile.telegram_id:
-        profile.telegram_id = payload.telegram_id
     db.commit()
     db.refresh(profile)
     return {
