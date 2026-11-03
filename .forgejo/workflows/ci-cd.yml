@@ -35,20 +35,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-      - name: Install exact application dependencies
+      - name: Verify request cancellation and build the interface
         run: |
-          python -c 'import subprocess,sys,tomllib; d=tomllib.load(open("backend/pyproject.toml","rb")); subprocess.check_call([sys.executable,"-m","pip","install",*d["project"]["dependencies"]])'
-          python -m pip install -r bot/requirements.txt
           npm ci --prefix frontend --no-audit --no-fund
-      - name: Verify request cancellation, query counts and callbacks locally
-        run: |
           npm test --prefix frontend
-          python -m unittest discover -s tests -v
-          python -m compileall -q backend bot
           npm run build --prefix frontend
+      - name: Verify query counts and bot callbacks in the production Python runtime
+        run: docker build --target check --progress=plain -f scripts/ci.Dockerfile .
   build:
     name: Build and push ${{ matrix.service }} image
     needs: check

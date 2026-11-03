@@ -315,4 +315,4 @@ npm test --prefix frontend
 npm run build --prefix frontend
 ```
 
-Forgejo проверяет PR до сборки образов. Main автоматически обновляет dev; публикация prod сохраняет существующий workflow_dispatch с deploy_prod=true. Проверка версии: `/api/health` и `/version.json` содержат SHA образа, собранного CI.
+Forgejo проверяет PR до сборки образов. Интерфейс проверяется на Node 24, а Python-тесты изолированы в `scripts/ci.Dockerfile` с тем же Python 3.13, что и приложение, поэтому не требуют Python из кэша ОС runner. Main автоматически обновляет dev; публикация prod сохраняет существующий workflow_dispatch с deploy_prod=true. Проверка версии: `/api/health` и `/version.json` содержат SHA образа, собранного CI.
