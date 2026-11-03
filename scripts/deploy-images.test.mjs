@@ -110,6 +110,7 @@ test('Forgejo deployment is two real runner jobs with scoped checkouts and manua
  }
  for(const id of ['check','build','deploy-dev','deploy-prod']){
   const block=text.match(new RegExp('^  '+id+':\\n([\\s\\S]*?)(?=^  [a-z-]+:|$(?![\\s\\S]))','m'))?.[1];assert(block);
+  if(id==='check'||id==='build')assert.match(block,/^    runs-on: homelab-docker$/m);
   assert(block.includes('container:\n      image: ghcr.io/catthehacker/ubuntu@sha256:62d572b92f9f32d3427b6d220ad1f9dca9c7b6ffad37d295425037dbff78abaf'));
  }
  assert(text.includes('run: node --test scripts/deploy-images.test.mjs'));

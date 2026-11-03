@@ -341,4 +341,4 @@ node scripts/deploy-images.mjs --repo /path/to/local-fixture --environment dev -
 
 После реальной публикации Argo CD применяет обновлённые ссылки на образы. `/api/health` и `/version.json` должны подтвердить тот же SHA; этот фикс не меняет рабочую БД, DNS или конфигурацию Argo CD.
 
-Все runner jobs используют один зафиксированный образ с Docker/Node/Git. Это исключает случайный выбор `node:22-bookworm` без Docker при одинаковой метке `ubuntu-latest` на разных selfhost runner. Сокет и Docker daemon сохраняются существующими, новый daemon workflow не запускает.
+Все runner jobs используют один зафиксированный образ с Docker/Node/Git. Проверки и сборка образов выполняются на существующем runner организации с меткой `homelab-docker`: общая метка `ubuntu-latest` также назначена worker без Docker daemon. GitOps jobs не требуют Docker и сохраняют метку `ubuntu-latest`. Сокет, разрешения и Docker daemon не меняются, новый daemon workflow не запускает.

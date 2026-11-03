@@ -28,7 +28,8 @@ concurrency:
 jobs:
   check:
     name: Check feeds, bot and interface
-    runs-on: ubuntu-latest
+    # Метка организации для runner с существующим Docker daemon.
+    runs-on: homelab-docker
     container:
       image: ghcr.io/catthehacker/ubuntu@sha256:62d572b92f9f32d3427b6d220ad1f9dca9c7b6ffad37d295425037dbff78abaf
     timeout-minutes: 10
@@ -50,7 +51,7 @@ jobs:
     name: Build and push ${{ matrix.service }} image
     needs: check
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: homelab-docker
     container:
       image: ghcr.io/catthehacker/ubuntu@sha256:62d572b92f9f32d3427b6d220ad1f9dca9c7b6ffad37d295425037dbff78abaf
     timeout-minutes: 20
