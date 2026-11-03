@@ -35,6 +35,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      - name: Verify GitOps image update safety
+        run: node --test scripts/deploy-images.test.mjs
       - name: Verify request cancellation and build the interface
         run: |
           npm ci --prefix frontend --no-audit --no-fund
@@ -81,22 +83,58 @@ jobs:
   deploy-dev:
     name: Deploy to dev
     needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     concurrency:
       group: deploy-dev
       cancel-in-progress: false
-    uses: ./.forgejo/workflows/deploy.yml
-    with:
-      environment: dev
-    secrets: inherit
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          path: source
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Checkout homelab
+        uses: actions/checkout@v4
+        with:
+          github-server-url: https://github.com
+          repository: pxc1984/homelab
+          ssh-key: ${{ secrets.HOMELAB_DEPLOY_KEY }}
+          path: homelab
+      - name: Publish dev image references to GitOps
+        env:
+          TAG: ${{ github.sha }}
+        run: node source/scripts/deploy-images.mjs --repo homelab --environment dev --tag "$TAG"
 
   deploy-prod:
     name: Deploy to prod
     needs: deploy-dev
-    if: github.event_name == 'workflow_dispatch' && inputs.deploy_prod
+    if: github.event_name == 'workflow_dispatch' && (inputs.deploy_prod == true || inputs.deploy_prod == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     concurrency:
       group: deploy-prod
       cancel-in-progress: false
-    uses: ./.forgejo/workflows/deploy.yml
-    with:
-      environment: prod
-    secrets: inherit
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          path: source
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Checkout homelab
+        uses: actions/checkout@v4
+        with:
+          github-server-url: https://github.com
+          repository: pxc1984/homelab
+          ssh-key: ${{ secrets.HOMELAB_DEPLOY_KEY }}
+          path: homelab
+      - name: Publish prod image references to GitOps
+        env:
+          TAG: ${{ github.sha }}
+        run: node source/scripts/deploy-images.mjs --repo homelab --environment prod --tag "$TAG"
