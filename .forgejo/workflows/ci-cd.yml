@@ -29,6 +29,8 @@ jobs:
   check:
     name: Check feeds, bot and interface
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/catthehacker/ubuntu@sha256:62d572b92f9f32d3427b6d220ad1f9dca9c7b6ffad37d295425037dbff78abaf
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -49,6 +51,8 @@ jobs:
     needs: check
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/catthehacker/ubuntu@sha256:62d572b92f9f32d3427b6d220ad1f9dca9c7b6ffad37d295425037dbff78abaf
     timeout-minutes: 20
     strategy:
       matrix:
@@ -57,6 +61,9 @@ jobs:
       IMAGE: git.cu3rd.ru/cu3rd/campus-hotel-cu-${{ matrix.service }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify Docker client and daemon
+        run: docker version
 
       # Драйвер docker: сборка идёт в dockerd раннера, и слои кэшируются на его
       # томе между запусками (registry-кэш buildx не нужен).
@@ -84,6 +91,8 @@ jobs:
     name: Deploy to dev
     needs: build
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/catthehacker/ubuntu@sha256:62d572b92f9f32d3427b6d220ad1f9dca9c7b6ffad37d295425037dbff78abaf
     timeout-minutes: 15
     concurrency:
       group: deploy-dev
@@ -114,6 +123,8 @@ jobs:
     needs: deploy-dev
     if: github.event_name == 'workflow_dispatch' && (inputs.deploy_prod == true || inputs.deploy_prod == 'true')
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/catthehacker/ubuntu@sha256:62d572b92f9f32d3427b6d220ad1f9dca9c7b6ffad37d295425037dbff78abaf
     timeout-minutes: 15
     concurrency:
       group: deploy-prod
