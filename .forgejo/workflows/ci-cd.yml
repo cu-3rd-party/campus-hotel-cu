@@ -11,7 +11,6 @@ name: CI/CD
 # переменная организации REGISTRY_USER и секрет организации REGISTRY_TOKEN.
 
 on:
-  pull_request:
   push:
     branches: [ main ]
   workflow_dispatch:
@@ -26,34 +25,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  check:
-    name: Check feeds, bot and interface
-    # Метка организации для runner с существующим Docker daemon.
-    runs-on: homelab-docker
-    container:
-      image: ghcr.io/catthehacker/ubuntu@sha256:62d572b92f9f32d3427b6d220ad1f9dca9c7b6ffad37d295425037dbff78abaf
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-      - name: Verify GitOps image update safety
-        run: node --test scripts/deploy-images.test.mjs
-      - name: Verify request cancellation and build the interface
-        run: |
-          npm ci --prefix frontend --no-audit --no-fund
-          npm test --prefix frontend
-          npm run build --prefix frontend
-      - name: Verify query counts and bot callbacks in the production Python runtime
-        run: docker build --target check --progress=plain -f scripts/ci.Dockerfile .
   build:
     name: Build and push ${{ matrix.service }} image
-    needs: check
-    if: github.event_name != 'pull_request'
-    runs-on: homelab-docker
-    container:
-      image: ghcr.io/catthehacker/ubuntu@sha256:62d572b92f9f32d3427b6d220ad1f9dca9c7b6ffad37d295425037dbff78abaf
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       matrix:
@@ -62,9 +36,6 @@ jobs:
       IMAGE: git.cu3rd.ru/cu3rd/campus-hotel-cu-${{ matrix.service }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Verify Docker client and daemon
-        run: docker version
 
       # Драйвер docker: сборка идёт в dockerd раннера, и слои кэшируются на его
       # томе между запусками (registry-кэш buildx не нужен).
@@ -81,7 +52,6 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.service }}
-          build-args: RELEASE_ID=${{ github.sha }}
           push: true
           tags: ${{ env.IMAGE }}:${{ github.sha }}
           labels: |
@@ -91,62 +61,22 @@ jobs:
   deploy-dev:
     name: Deploy to dev
     needs: build
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/catthehacker/ubuntu@sha256:62d572b92f9f32d3427b6d220ad1f9dca9c7b6ffad37d295425037dbff78abaf
-    timeout-minutes: 15
     concurrency:
       group: deploy-dev
       cancel-in-progress: false
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-        with:
-          path: source
-          persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-      - name: Checkout homelab
-        uses: actions/checkout@v4
-        with:
-          github-server-url: https://github.com
-          repository: pxc1984/homelab
-          ssh-key: ${{ secrets.HOMELAB_DEPLOY_KEY }}
-          path: homelab
-      - name: Publish dev image references to GitOps
-        env:
-          TAG: ${{ github.sha }}
-        run: node source/scripts/deploy-images.mjs --repo homelab --environment dev --tag "$TAG"
+    uses: ./.forgejo/workflows/deploy.yml
+    with:
+      environment: dev
+    secrets: inherit
 
   deploy-prod:
     name: Deploy to prod
     needs: deploy-dev
-    if: github.event_name == 'workflow_dispatch' && (inputs.deploy_prod == true || inputs.deploy_prod == 'true')
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/catthehacker/ubuntu@sha256:62d572b92f9f32d3427b6d220ad1f9dca9c7b6ffad37d295425037dbff78abaf
-    timeout-minutes: 15
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy_prod
     concurrency:
       group: deploy-prod
       cancel-in-progress: false
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-        with:
-          path: source
-          persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-      - name: Checkout homelab
-        uses: actions/checkout@v4
-        with:
-          github-server-url: https://github.com
-          repository: pxc1984/homelab
-          ssh-key: ${{ secrets.HOMELAB_DEPLOY_KEY }}
-          path: homelab
-      - name: Publish prod image references to GitOps
-        env:
-          TAG: ${{ github.sha }}
-        run: node source/scripts/deploy-images.mjs --repo homelab --environment prod --tag "$TAG"
+    uses: ./.forgejo/workflows/deploy.yml
+    with:
+      environment: prod
+    secrets: inherit

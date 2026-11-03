@@ -315,30 +315,4 @@ npm test --prefix frontend
 npm run build --prefix frontend
 ```
 
-Forgejo проверяет PR до сборки образов. Интерфейс проверяется на Node 24, а Python-тесты изолированы в `scripts/ci.Dockerfile` с тем же Python 3.13, что и приложение, поэтому не требуют Python из кэша ОС runner. Main автоматически обновляет dev; публикация prod сохраняет существующий workflow_dispatch с deploy_prod=true. Проверка версии: `/api/health` и `/version.json` содержат SHA образа, собранного CI.
-
-
-### Явные GitOps deploy-jobs в Forgejo
-
-`deploy-dev` и `deploy-prod` в `.forgejo/workflows/ci-cd.yml` — обычные runner jobs со своими checkout и шагом публикации. Это исключает вложенный `workflow_call`, который Forgejo пропускал внутри успешно завершившегося wrapper-job. Старый `.forgejo/workflows/deploy.yml` оставлен для истории и больше не вызывается из CI/CD. Успех сборки или wrapper-job сам по себе не означает публикацию: в запуске должны успешно завершиться реальные шаги `Publish dev/prod image references to GitOps`.
-
-Dev зависит от сборки всех трёх образов; prod — от dev и запускается только вручную с `deploy_prod=true`. У окружений остаются отдельные concurrency-группы. Исходники checkout находятся в `source` с отключённым сохранением credentials. Homelab checkout находится в `homelab`, использует GitHub и прежний `HOMELAB_DEPLOY_KEY`; новых ключей и секретов нет. Node 24 устанавливается тем же действием, что уже используется в check-job.
-
-`scripts/deploy-images.mjs` принимает только `dev`/`prod` и полный SHA из 40 строчных hex-символов. До записи проверяет чистоту GitOps checkout и все три отслеживаемых обычных `values.yaml`; меняет только `repository` и `tag` верхнеуровневого `image`. Комментарии, кавычки, окончания строк, другие поля и приложения сохраняются; неподдерживаемая структура приводит к ошибке до записи. В commit попадают только три ожидаемых файла. После отказа push допускается до двух `pull --rebase` и ещё двух попыток push; конфликт или окончательный отказ остаются ошибкой CI, force-push не используется. Уже актуальные значения не создают повторный commit.
-
-Проверка только на синтетическом временном bare-репозитории, без доступа к настоящему homelab:
-
-```sh
-node --check scripts/deploy-images.mjs
-node --test scripts/deploy-images.test.mjs
-```
-
-Предварительный просмотр для отдельной локальной копии (без записи, staging, commit и push):
-
-```sh
-node scripts/deploy-images.mjs --repo /path/to/local-fixture --environment dev --tag <40-hex-SHA> --dry-run
-```
-
-После реальной публикации Argo CD применяет обновлённые ссылки на образы. `/api/health` и `/version.json` должны подтвердить тот же SHA; этот фикс не меняет рабочую БД, DNS или конфигурацию Argo CD.
-
-Все runner jobs используют один зафиксированный образ с Docker/Node/Git. Проверки и сборка образов выполняются на существующем runner организации с меткой `homelab-docker`: общая метка `ubuntu-latest` также назначена worker без Docker daemon. GitOps jobs не требуют Docker и сохраняют метку `ubuntu-latest`. Сокет, разрешения и Docker daemon не меняются, новый daemon workflow не запускает.
+Workflow CI/CD сохранён в исходном варианте. Локальные проверки интерфейса, API и бота запускаются командами выше.
