@@ -10,9 +10,9 @@ const KEY = "obshaga_my_profile_id";
  *
  * Внутри Telegram личность определяет подпись initData — это надёжно и
  * переживает смену устройства и очистку кэша. localStorage остаётся
- * запасным вариантом для обычного браузера, где подписи нет.
+ * подсказкой локального fixture-режима; на рабочем сайте он не даёт прав.
  */
-export function useMyProfile() {
+export function useMyProfile({ allowLocalFallback = false } = {}) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -24,15 +24,19 @@ export function useMyProfile() {
         writeStored(KEY, String(mine.id));
         setProfile(mine);
         return mine;
-      } catch {
-        // 404 — анкеты действительно нет. Пробуем localStorage ниже:
-        // анкету могли создать в браузере без входа через Telegram.
+      } catch (error) {
+        // A browser id is never an ownership credential. In particular, a
+        // signed-in newcomer must not adopt another person's cached profile.
+        if (error.status === 404) setProfile(null);
+        return null;
       } finally {
         setLoading(false);
       }
     }
 
-    // 2) Обычный браузер (или анкета без привязки к Telegram).
+    if (!allowLocalFallback) { setProfile(null); setLoading(false); return null; }
+
+    // 2) Только явно разрешённая локальная разработка.
     const id = readStored(KEY);
     if (!id) {
       setProfile(null);
@@ -50,7 +54,7 @@ export function useMyProfile() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [allowLocalFallback]);
 
   useEffect(() => {
     reload();

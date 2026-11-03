@@ -10,22 +10,7 @@
     <meta name="description" content="Найди соседей по комнате в Диске и Облаке: познакомься, сравни привычки и собери комнату вместе."/>
     <link rel="icon" href="/identity/disk.svg" type="image/svg+xml"/>
     <script defer src="/telegram-web-app.js"></script>
-    <script>
-      // Применяем тему до отрисовки, чтобы не было вспышки светлого экрана.
-      (function () {
-        try {
-          var mode = localStorage.getItem("obshaga_theme") || "system";
-          var dark =
-            mode === "dark" ||
-            (mode === "system" &&
-              window.matchMedia("(prefers-color-scheme: dark)").matches);
-          document.documentElement.setAttribute(
-            "data-theme",
-            dark ? "dark" : "light"
-          );
-        } catch (e) {}
-      })();
-    </script>
+    <script src="/theme-init.js"></script>
     <script src="/hub-tracker.js" data-project="disk" defer></script>
   </head>
   <body>

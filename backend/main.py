@@ -10,6 +10,7 @@ from sqlalchemy import text
 import campuses, config, storage
 from api import router as api_router
 from database import Base, engine, wait_for_db
+from security import RequestBounds
 
 log = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestBounds)
 
 app.include_router(api_router)
 

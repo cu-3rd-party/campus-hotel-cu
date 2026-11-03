@@ -1,3 +1,4 @@
+import { profilePhoto } from "../links.mjs";
 import { useEffect, useRef, useState } from "react";
 import {
   authTelegram,
@@ -116,6 +117,7 @@ export default function AddProfileModal({
   const [photosBusy, setPhotosBusy] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const dialogRef = useRef(null);
@@ -176,7 +178,7 @@ export default function AddProfileModal({
     setForm((prev) => ({
       ...prev,
       name: prev.name || profileData.name || "",
-      telegram: profileData.telegram || prev.telegram,
+      telegram: profileData.telegram || "",
       photo_url: prev.photo_url || profileData.photo_url || "",
     }));
   }
@@ -378,12 +380,14 @@ export default function AddProfileModal({
               лишним вопросом с заранее известным ответом. */}
           {!tgConfirmed && (
             <label className="field">
-              <span>Telegram * (без @)</span>
+              <span>Telegram-ник (если есть, без @)</span>
               <input
-                required
                 value={form.telegram}
                 onChange={set("telegram")}
                 placeholder="username"
+                maxLength={32}
+                pattern="@?[A-Za-z0-9_]{1,32}"
+                title="Telegram-ник без ссылки: буквы, цифры и подчёркивание"
               />
             </label>
           )}
@@ -391,6 +395,7 @@ export default function AddProfileModal({
           <div className="field">
             <span>Фото</span>
             <PhotoPicker
+              onBusyChange={setPhotoBusy}
               value={form.photo_url}
               name={form.name}
               onChange={(url) => setForm((prev) => ({ ...prev, photo_url: url }))}
@@ -420,7 +425,7 @@ export default function AddProfileModal({
                       }
                       aria-pressed={form.photo_url === url}
                     >
-                      <img src={url} alt="" loading="lazy" />
+                      <img src={profilePhoto(url)} referrerPolicy="no-referrer" alt="" loading="lazy" />
                     </button>
                   ))}
                 </div>
@@ -443,7 +448,7 @@ export default function AddProfileModal({
 
             {tgConfirmed ? (
               <p className="tg-block__done">
-                ✓ Telegram подтверждён{form.telegram ? ` — @${form.telegram}` : ""}
+                ✓ Telegram подтверждён{form.telegram ? ` — @${form.telegram}` : ". Публичного ника нет — его можно добавить в Telegram и открыть приложение заново."}
               </p>
             ) : insideTelegram ? (
               <button
@@ -643,11 +648,12 @@ export default function AddProfileModal({
             </div>
           </div>
 
-          {error && <p className="modal__error">{error}</p>}
+          {error && <p className="modal__error" role="alert">{error}</p>}
 
-          <button className="modal__submit" type="submit" disabled={saving || deleting}>
+          <button className="modal__submit" type="submit" disabled={saving || deleting || photoBusy}>
             {saving
               ? "Сохраняем…"
+              : photoBusy ? "Дождёмся загрузки фото…"
               : isEdit
                 ? "Сохранить изменения"
                 : "Разместить анкету"}

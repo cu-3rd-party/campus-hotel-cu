@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -12,6 +13,15 @@ MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", 5 * 1024 * 1024))
 
 # Насколько свежей должна быть подпись Telegram (защита от replay).
 AUTH_MAX_AGE_SECONDS = int(os.getenv("TELEGRAM_AUTH_MAX_AGE", 24 * 60 * 60))
+
+
+def development_auth_enabled() -> bool:
+    """Explicit, token-less local fixtures only; missing production config is closed."""
+    return (
+        os.getenv("APP_ENV") == "development"
+        and os.getenv("ALLOW_INSECURE_DEV_AUTH") == "1"
+        and not TELEGRAM_BOT_TOKEN
+    )
 
 
 # Общий секрет между ботом и бэкендом: бот ходит в служебные ручки от имени
@@ -124,3 +134,10 @@ TELEGRAM_PROXY_URL = os.getenv("TELEGRAM_PROXY_URL", "").strip() or None
 
 def telegram_enabled() -> bool:
     return bool(TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_USERNAME)
+
+
+def miniapp_url() -> Optional[str]:
+    if not telegram_enabled() or not re.fullmatch(r"[A-Za-z0-9_]{5,32}", TELEGRAM_BOT_USERNAME):
+        return None
+    suffix = f"/{TELEGRAM_MINIAPP_SHORT_NAME}" if re.fullmatch(r"[A-Za-z0-9_]{1,64}", TELEGRAM_MINIAPP_SHORT_NAME) else ""
+    return f"https://t.me/{TELEGRAM_BOT_USERNAME}{suffix}?startapp"

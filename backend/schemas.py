@@ -1,5 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+import re
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -87,7 +89,7 @@ class ProfileBase(BaseModel):
     # Кампус-отель. Значение по умолчанию — для анкет, созданных до его появления.
     campus: str = Field(campuses.DEFAULT, pattern=campuses.PATTERN)
     photo_url: str = Field("", max_length=500)
-    telegram: str = Field(..., min_length=1, max_length=80)
+    telegram: str = Field("", max_length=80)
 
     # Ниже "" везде значит «не выбрано» — характеристику просто не показываем,
     # вместо того чтобы врать значением по умолчанию.
@@ -124,14 +126,46 @@ class ProfileBase(BaseModel):
         return normalize_room_capacities(value)
 
 
-class ProfileCreate(ProfileBase):
+class ProfileInput(ProfileBase):
+    bio: str = Field("", max_length=500)
+
+    @field_validator("name")
+    @classmethod
+    def clean_name(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("Укажи имя")
+        return value
+
+    @field_validator("telegram")
+    @classmethod
+    def clean_username(cls, value):
+        value = value.strip().lstrip("@")
+        if not value:
+            return ""
+        if not re.fullmatch(r"[A-Za-z0-9_]{1,32}", value):
+            raise ValueError("Укажи Telegram-ник без ссылки: буквы, цифры и подчёркивание")
+        return value
+
+    @field_validator("photo_url")
+    @classmethod
+    def clean_photo(cls, value):
+        if not value or re.fullmatch(r"/api/media/[a-f0-9]{32}\.jpg", value):
+            return value
+        url = urlsplit(value)
+        if url.scheme != "https" or not url.hostname or url.username or url.password or any(c.isspace() for c in value):
+            raise ValueError("Загрузи фото файлом или укажи безопасный HTTPS-адрес")
+        return value
+
+
+class ProfileCreate(ProfileInput):
     # Необязательное подтверждение через Telegram. Подпись проверяется на сервере
     # повторно — клиент не может сам объявить себя подтверждённым.
     telegram_auth: Optional[Dict[str, Any]] = None
-    telegram_init_data: Optional[str] = None
+    telegram_init_data: Optional[str] = Field(None, max_length=16384)
 
 
-class ProfileUpdate(ProfileBase):
+class ProfileUpdate(ProfileInput):
     """Редактирование своей анкеты.
 
     Подтверждённый Telegram сервер менять не даёт, а вот пол — даёт: на входе
@@ -373,7 +407,7 @@ class TelegramWidgetAuth(BaseModel):
 class TelegramWebAppAuth(BaseModel):
     """initData из Telegram Mini App."""
 
-    init_data: str
+    init_data: str = Field(..., max_length=16384)
 
 
 class TelegramProfileOut(BaseModel):
@@ -407,7 +441,7 @@ class TelegramPhotosIn(TelegramWebAppAuth):
     """Запрос порции аватарок: тянуть сразу все долго, особенно через прокси."""
 
     offset: int = Field(0, ge=0)
-    limit: int = Field(6, ge=1, le=20)
+    limit: int = Field(6, ge=1, le=6)
 
 
 class TelegramPhotosOut(BaseModel):
@@ -422,6 +456,8 @@ class ConfigOut(BaseModel):
     telegram_bot_username: Optional[str] = None
     max_upload_bytes: int
     is_admin: bool = False
+    development_mode: bool = False
+    telegram_app_url: Optional[str] = None
 
 
 class AdminExportIn(BaseModel):

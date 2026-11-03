@@ -1,3 +1,4 @@
+import { profilePhoto } from "../links.mjs";
 import { useEffect, useRef, useState } from "react";
 import {
   adminDeleteProfile,
@@ -313,8 +314,8 @@ export default function AdminPanel({ onClose, onChanged }) {
                 {people.map((person) => (
                   <div className="admin__row" key={person.id}>
                     <div className="admin__row-photo">
-                      {person.photo_url ? (
-                        <img src={person.photo_url} alt="" loading="lazy" />
+                      {profilePhoto(person.photo_url) ? (
+                        <img src={profilePhoto(person.photo_url)} referrerPolicy="no-referrer" alt="" loading="lazy" />
                       ) : (
                         <span>{person.name.trim().charAt(0).toUpperCase()}</span>
                       )}

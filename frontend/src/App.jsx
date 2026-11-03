@@ -40,13 +40,14 @@ import {
   campusHasBlocks,
   campusRoomsText,
 } from "./labels.js";
-import { getStartParam, initWebApp } from "./telegram.js";
+import { getStartParam, initWebApp, isInsideTelegram } from "./telegram.js";
 import { releaseStuckLock } from "./useModalLock.js";
 import { useMyProfile } from "./useMyProfile.js";
 import { useDebouncedValue, useRemoteList } from "./useRemoteList.js";
 import { LatestRequest } from "./request.mjs";
 import { readStored, writeStored, removeStored } from "./storage.mjs";
 import FeedSettings from "./components/FeedSettings.jsx";
+import AccessGate from "./components/AccessGate.jsx";
 import Brand from "./components/Brand.jsx";
 
 const GENDER_KEY = "obshaga_gender";
@@ -107,6 +108,8 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   // Админка своя только у владельцев — решает сервер по подписи Telegram.
   const [isAdmin, setIsAdmin] = useState(false);
+  const [access, setAccess] = useState(null);
+  const [accessFailed, setAccessFailed] = useState(false);
 
   // «Идеальные соседи»: у кого совпали все мои параметры. Подбирает сервер.
   const [idealIds, setIdealIds] = useState([]);
@@ -121,10 +124,11 @@ export default function App() {
   // человека обратно к чужой анкете.
   const scrolledTo = useRef(null);
 
-  const { myProfile, loadingMe, remember, forget, reloadMe } = useMyProfile();
+  const { myProfile, loadingMe, remember, forget, reloadMe } = useMyProfile({ allowLocalFallback: Boolean(access?.development_mode) });
   const searchFilters = useDebouncedValue(filters);
   const scope = `${gender}:${campus}`;
-  const enabled = Boolean(gender && campus);
+  const identityAvailable = Boolean(access?.development_mode || isInsideTelegram());
+  const enabled = Boolean(gender && campus && identityAvailable);
   const peopleFeed = useRemoteList(JSON.stringify(searchFilters), scope,
     signal => fetchProfiles({ ...searchFilters, gender, campus, without_group: true }, { signal }), enabled);
   const roomFeed = useRemoteList(scope, scope,
@@ -223,8 +227,8 @@ export default function App() {
   useEffect(() => {
     initWebApp();
     fetchConfig()
-      .then((cfg) => setIsAdmin(Boolean(cfg.is_admin)))
-      .catch(() => setIsAdmin(false));
+      .then((cfg) => { setAccess(cfg); setIsAdmin(Boolean(cfg.is_admin)); })
+      .catch(() => { setIsAdmin(false); setAccessFailed(true); });
   }, []);
 
   // Each feed loads independently through useRemoteList; typing only requests people.
@@ -260,7 +264,7 @@ export default function App() {
   // Пришли по ссылке — сначала выясняем, чья это анкета: от неё зависит и
   // кампус-отель, и лента, в которой её вообще видно.
   useEffect(() => {
-    if (!targetId || loadingMe) return;
+    if (!targetId || loadingMe || !identityAvailable) return;
     let cancelled = false;
 
     fetchProfile(targetId)
@@ -303,7 +307,7 @@ export default function App() {
     // Достаточно одного захода: как только стало известно, кто я, решение
     // принято и повторять его не нужно.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetId, loadingMe]);
+  }, [targetId, loadingMe, identityAvailable]);
 
   useEffect(() => {
     const index = profiles.findIndex(profile => profile.id === highlightId);
@@ -423,6 +427,10 @@ export default function App() {
   // и право на это всё равно проверяет сервер по подписи Telegram.
   const handleAdminDelete = (profileId) =>
     withBusy(() => adminDeleteProfile(profileId));
+
+  if (!isInsideTelegram() && !access?.development_mode) {
+    return <AccessGate config={access} failed={accessFailed} profileId={targetId}/>;
+  }
 
   // Кампус-отель определяет и ленту, и размеры комнат — спрашиваем его первым.
   if (!campus) {
@@ -672,7 +680,7 @@ export default function App() {
 
         {activeFeed.loading && <p className="feed-status" role="status">{loading ? "Загружаем анкеты и комнаты…" : "Обновляем подборку…"}</p>}
         {loading && <div className="feed-skeleton" aria-hidden="true">{[1,2,3].map(n => <div key={n}><span /><i /><i /></div>)}</div>}
-        {error && <div className="feed-error" role="alert"><p>{error}</p><button type="button" onClick={() => { setError(""); activeFeed.reload(); }}>Попробовать ещё раз</button></div>}
+        {error && <div className="feed-error" role="alert"><p>{error}</p>{activeFeed.errorStatus === 401 && access?.telegram_app_url ? <a className="access-gate__button" href={access.telegram_app_url}>Открыть приложение заново →</a> : <button type="button" onClick={() => { setError(""); activeFeed.reload(); }}>Попробовать ещё раз</button>}</div>}
 
         {!loading && (!error || activeFeed.loaded) && tab === "singles" && (
           <>

@@ -1,3 +1,4 @@
+import { profilePhoto, telegramLink } from "../links.mjs";
 import { useState } from "react";
 import { TRACK, roomLabel } from "../labels.js";
 import ProfileSpecs from "./ProfileSpecs.jsx";
@@ -6,8 +7,8 @@ function Avatar({ person, className = "" }) {
   const initial = (person.name || "?").trim().charAt(0).toUpperCase();
   return (
     <span className={`gmember__ava ${className}`}>
-      {person.photo_url ? (
-        <img src={person.photo_url} alt={person.name} loading="lazy" />
+      {profilePhoto(person.photo_url) ? (
+        <img src={profilePhoto(person.photo_url)} referrerPolicy="no-referrer" alt={person.name} loading="lazy" />
       ) : (
         initial
       )}
@@ -51,11 +52,11 @@ function Member({ member }) {
           <ProfileSpecs profile={member} />
           <a
             className="gmember__tg"
-            href={`https://t.me/${member.telegram}`}
+            href={telegramLink(member.telegram)} aria-disabled={!telegramLink(member.telegram)}
             target="_blank"
             rel="noreferrer"
           >
-            Написать в Telegram
+            {telegramLink(member.telegram) ? "Написать в Telegram" : "Контакт не указан"}
           </a>
         </div>
       )}
