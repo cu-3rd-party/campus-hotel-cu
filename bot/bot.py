@@ -26,6 +26,7 @@ from aiogram.types import CallbackQuery, Message, BotCommand
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("bot")
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 API_URL = os.getenv("API_URL", "http://backend:8000").rstrip("/")
@@ -68,8 +69,17 @@ def search_keyboard():
     return {"inline_keyboard": [[{"text": "Открыть поиск соседей", "web_app": {"url": SITE_URL}}]]}
 
 
+async def require_private_chat(message: Message) -> bool:
+    if message.chat.type == "private":
+        return True
+    await message.answer("Анкета и заявки доступны в личном чате с ботом. Открой его профиль и нажми «Начать».")
+    return False
+
+
 @dp.message(Command("search", "help"))
 async def cmd_help(message: Message):
+    if not await require_private_chat(message):
+        return
     await message.answer(
         "<b>Рядом · Соседи</b>\n\n"
         "Открой поиск, выбери Диск или Облако и расскажи немного о себе. "
@@ -82,6 +92,8 @@ async def cmd_help(message: Message):
 
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
+    if not await require_private_chat(message):
+        return
     user = message.from_user
     async with api_client() as client:
         try:
@@ -96,7 +108,7 @@ async def cmd_start(message: Message):
             resp.raise_for_status()
             data = resp.json()
         except httpx.HTTPError as exc:
-            log.warning("link failed: %s", exc)
+            log.warning("link failed: %s", type(exc).__name__)
             await message.answer("Сайт сейчас недоступен, попробуй позже.")
             return
 
@@ -109,7 +121,7 @@ async def cmd_start(message: Message):
             "Не нашёл твою анкету. Открой приложение кнопкой снизу — рядом с "
             "полем ввода — и заполни анкету: имя, фото и ник подтянутся из "
             "Telegram сами.\n\n"
-            "После этого уведомления включатся автоматически.",
+            "После сохранения анкеты отправь /start ещё раз — подключим личные уведомления.",
             reply_markup=search_keyboard(),
         )
         return
@@ -129,6 +141,8 @@ async def cmd_start(message: Message):
 
 @dp.message(Command("pending"))
 async def cmd_pending(message: Message):
+    if not await require_private_chat(message):
+        return
     async with api_client() as client:
         try:
             resp = await client.get(
@@ -147,7 +161,7 @@ async def cmd_pending(message: Message):
     for item in items:
         await message.answer(
             f"🔔 <b>{h(item['who'])}</b> просится в комнату на {item['capacity']}.\n"
-            f"@{h(item['telegram'])}",
+            + (f"@{h(item['telegram'])}" if item.get('telegram') else "Публичный ник не указан."),
             reply_markup={
                 "inline_keyboard": [
                     [

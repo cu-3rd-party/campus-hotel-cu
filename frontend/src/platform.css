@@ -17,3 +17,6 @@ button,input,select,textarea{font:inherit}button,a,summary,input,select{touch-ac
 .header__settings-panel .header__gender,.header__settings-panel .header__campus{display:flex}.modal__close{min-width:44px;min-height:44px}.modal:focus{outline:none}
 
 .header__settings-panel .header__admin{display:flex;width:100%;justify-content:flex-start;font-size:12px;font-weight:500;min-height:44px}.header__settings-panel .header__admin-full{display:inline}.header__settings-panel .header__admin-icon{display:none}.tabs__btn--on .tabs__badge{color:var(--accent);background:transparent}
+
+.access-gate__button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:12px 18px;border:1px solid var(--solid-bg);border-radius:12px;background:var(--solid-bg);color:var(--solid-text);font-size:13px;font-weight:600;text-decoration:none;cursor:pointer}
+.card__tg[aria-disabled=true],.gmember__tg[aria-disabled=true]{background:var(--bg);color:var(--ink-soft);border-color:var(--border);cursor:default}

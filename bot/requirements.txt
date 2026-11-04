@@ -1,4 +1,6 @@
-aiogram==3.17.0
+aiogram==3.31.0
+# Bound the HTTP transport to the audited security release.
+aiohttp==3.14.4
 # Прокси-коннектор для aiogram: поддерживает http/socks5 через TELEGRAM_PROXY_URL.
 aiohttp-socks==0.10.1
 httpx==0.28.1

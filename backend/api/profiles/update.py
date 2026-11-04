@@ -7,7 +7,7 @@ import schemas, models, notifier
 from api.profiles import router
 from database import get_db
 from helpers import current_profile, _assert_is_me, _get_profile_or_404, _remove_from_group, _close_pending, \
-    _pack_lists
+    _pack_lists, telegram_user
 
 
 @router.put("/api/profiles/{profile_id}", response_model=schemas.ProfileOut)
@@ -17,10 +17,11 @@ def update_profile(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     actor: Optional[models.Profile] = Depends(current_profile),
+    user: Optional[dict] = Depends(telegram_user),
 ):
     """Редактирование своей анкеты.
 
-    Полноценной авторизации нет: правит тот, у кого в браузере сохранён id.
+    Личность определяется проверенной подписью Telegram, не id в браузере.
     Подтверждённый через Telegram ник менять нельзя — иначе подтверждение
     потеряет смысл.
 
@@ -33,7 +34,10 @@ def update_profile(
     profile = _get_profile_or_404(db, profile_id)
     data = payload.model_dump()
 
-    if profile.telegram_verified:
+    if user is not None:
+        data["telegram"] = user.get("username") or ""
+        profile.telegram_verified = True
+    elif profile.telegram_verified:
         data.pop("telegram", None)
     else:
         data["telegram"] = payload.telegram.lstrip("@").strip()

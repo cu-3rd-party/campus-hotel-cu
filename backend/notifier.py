@@ -12,6 +12,8 @@ import httpx
 from config import TELEGRAM_BOT_TOKEN, TELEGRAM_PROXY_URL
 
 log = logging.getLogger(__name__)
+# Bot API tokens are part of request URLs. Do not let HTTPX info logs record them.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 API = "https://api.telegram.org/bot{token}/{method}"
 
@@ -65,11 +67,11 @@ async def send_message(
             )
         if resp.status_code != 200:
             # Частый случай: человек не начал диалог с ботом (403).
-            log.warning("Telegram не принял сообщение: %s", resp.text[:200])
+            log.warning("Telegram не принял сообщение: HTTP %s", resp.status_code)
             return False
         return True
     except httpx.HTTPError as exc:
-        log.warning("Не смог отправить в Telegram: %s", exc)
+        log.warning("Не смог отправить в Telegram: %s", type(exc).__name__)
         return False
 
 
@@ -98,13 +100,13 @@ async def send_document(
                 files={"document": (filename, content)},
             )
     except httpx.HTTPError as exc:
-        log.warning("Не смог отправить файл в Telegram: %s", exc)
+        log.warning("Не смог отправить файл в Telegram: %s", type(exc).__name__)
         raise DocumentError("Telegram не отвечает, попробуй ещё раз")
 
     if resp.status_code != 200:
         # Причину не угадываем — в мини-апп заходят из чата с ботом, так что
         # обычное «нажми /start» тут ни при чём. Подробности пишем в лог.
-        log.warning("Telegram не принял файл: %s", resp.text[:200])
+        log.warning("Telegram не принял файл: HTTP %s", resp.status_code)
         raise DocumentError("Telegram не принял файл, попробуй ещё раз")
 
 

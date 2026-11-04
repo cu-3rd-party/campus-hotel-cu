@@ -18,6 +18,8 @@ from models import Block, Group, Profile
 
 class FeedTests(unittest.TestCase):
     def setUp(self):
+        self.dev = patch.dict(os.environ, {'APP_ENV': 'development', 'ALLOW_INSECURE_DEV_AUTH': '1'})
+        self.dev.start()
         self.engine = create_engine('sqlite://', connect_args={'check_same_thread': False}, poolclass=StaticPool)
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine)
@@ -33,6 +35,7 @@ class FeedTests(unittest.TestCase):
         app.dependency_overrides.clear()
         self.client.close()
         self.engine.dispose()
+        self.dev.stop()
     def populate(self, rooms=60):
         with self.Session() as db:
             for n in range(rooms):

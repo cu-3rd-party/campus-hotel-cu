@@ -3,6 +3,16 @@ export class ApiError extends Error {
   constructor(message, status = 0) { super(message); this.name = 'ApiError'; this.status = status; }
 }
 
+function errorMessage(data, fallback) {
+  if (typeof data?.detail === 'string') return data.detail;
+  const issue = Array.isArray(data?.detail) ? data.detail[0] : null;
+  const field = issue?.loc?.at(-1);
+  const labels = {name:'Имя', telegram:'Telegram', bio:'О себе', photo_url:'Фото'};
+  if (!labels[field]) return fallback;
+  if (issue.type === 'string_too_long') return `Поле «${labels[field]}» слишком длинное. Сократи текст и попробуй ещё раз.`;
+  return `Проверь поле «${labels[field]}» и попробуй ещё раз.`;
+}
+
 export async function requestJSON(url, fallback, options = {}, timeoutMs = 12000) {
   const controller = new AbortController();
   const cancel = () => controller.abort(options.signal?.reason);
@@ -17,7 +27,7 @@ export async function requestJSON(url, fallback, options = {}, timeoutMs = 12000
       if (response.ok) throw new ApiError(fallback, response.status);
       return null;
     });
-    if (!response.ok) throw new ApiError(typeof data?.detail === 'string' ? data.detail : fallback, response.status);
+    if (!response.ok) throw new ApiError(errorMessage(data, fallback), response.status);
     return data;
   } catch (error) {
     if (expired) throw new ApiError(options.method && options.method !== 'GET' ? 'Ответ сервера задержался. Обнови список и проверь результат перед повторной отправкой.' : 'Сервер отвечает дольше обычного. Попробуй обновить ещё раз.');

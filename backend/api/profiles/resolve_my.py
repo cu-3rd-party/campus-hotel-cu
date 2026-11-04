@@ -26,10 +26,12 @@ def resolve_my_profile(
     if not profile:
         raise HTTPException(status_code=404, detail="Анкета не найдена")
 
-    # Анкету могли создать до входа через Telegram — привязываем id сейчас,
-    # чтобы дальше находить её даже при смене ника.
-    if not profile.telegram_id:
-        profile.telegram_id = int(user["id"])
+    # Contacts can change; only this account's fresh signed data may refresh them.
+    username = user.get("username") or ""
+    if profile.telegram != username or not profile.telegram_verified:
+        profile.telegram = username
+        profile.telegram_verified = True
         db.commit()
         db.refresh(profile)
+
     return profile

@@ -1,3 +1,4 @@
+import { profilePhoto, telegramLink } from "../links.mjs";
 import { useState } from "react";
 import { GENDER, TRACK, roomLabel } from "../labels.js";
 import ProfileSpecs from "./ProfileSpecs.jsx";
@@ -64,8 +65,8 @@ export default function RoommateCard({
           иначе на телефоне детали ютились бы в узкой колонке справа. */}
       <div className="card__top">
         <div className="card__photo">
-          {photo_url ? (
-            <img src={photo_url} alt={name} loading="lazy" decoding="async" width="96" height="96" />
+          {profilePhoto(photo_url) ? (
+            <img src={profilePhoto(photo_url)} referrerPolicy="no-referrer" alt={name} loading="lazy" decoding="async" width="96" height="96" />
           ) : (
             <div className="card__placeholder">{initials(name)}</div>
           )}
@@ -136,7 +137,7 @@ export default function RoommateCard({
 
       <a
         className="card__tg"
-        href={`https://t.me/${telegram}`}
+        href={telegramLink(telegram)} aria-disabled={!telegramLink(telegram)}
         target="_blank"
         rel="noopener noreferrer"
       >
@@ -146,7 +147,7 @@ export default function RoommateCard({
             d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"
           />
         </svg>
-        Написать в Telegram
+        {telegramLink(telegram) ? "Написать в Telegram" : "Контакт не указан"}
       </a>
 
       {/* Кнопка модерации — последней и неяркой: она нужна редко, а место
