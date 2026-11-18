@@ -33,7 +33,7 @@ import { getStartParam, initWebApp, isInsideTelegram } from "./telegram.js";
 import { releaseStuckLock } from "./useModalLock.js";
 import { useMyProfile } from "./useMyProfile.js";
 import { useDebouncedValue, useRemoteList } from "./useRemoteList.js";
-import { compareHabits } from "./habitMatch.js";
+import { compareHabits, sortProfilesByMatch } from "./habitMatch.js";
 import { readStored, writeStored, removeStored } from "./storage.mjs";
 import FeedSettings from "./components/FeedSettings.jsx";
 import AccessGate from "./components/AccessGate.jsx";
@@ -121,8 +121,12 @@ export default function App() {
   const matches = useMemo(() => new Map(profiles.map(profile => [
     profile.id, compareHabits(myProfile, profile),
   ])), [myProfile, profiles]);
+  const sortedProfiles = useMemo(() => sortProfilesByMatch(profiles, matches), [profiles, matches]);
+  const fullMatches = useMemo(() => sortedProfiles.filter(profile => matches.get(profile.id)?.percent === 100),
+    [sortedProfiles, matches]);
+  const shownProfiles = matchingOnly ? fullMatches : sortedProfiles;
   const activeFeed = tab === "groups" ? roomFeed : peopleFeed;
-  const loading = activeFeed.loading && !activeFeed.loaded;
+  const loading = (activeFeed.loading && !activeFeed.loaded) || (tab === "singles" && loadingMe);
   const error = actionError || activeFeed.error;
   const [visibleCount, setVisibleCount] = useState(24);
   const inboxVersion = useRef(0);
@@ -252,9 +256,9 @@ export default function App() {
   }, [targetId, loadingMe, identityAvailable]);
 
   useEffect(() => {
-    const index = profiles.findIndex(profile => profile.id === highlightId);
+    const index = shownProfiles.findIndex(profile => profile.id === highlightId);
     if (index >= visibleCount) setVisibleCount(Math.ceil((index + 1) / 24) * 24);
-  }, [highlightId, profiles, visibleCount]);
+  }, [highlightId, shownProfiles, visibleCount]);
 
   // Анкета доехала до ленты — прокручиваем к ней и снимаем подсветку.
   useEffect(() => {
@@ -275,7 +279,7 @@ export default function App() {
     // Подсветка — подсказка «вот она», а не постоянное состояние карточки.
     const id = setTimeout(() => setHighlightId(null), 2600);
     return () => clearTimeout(id);
-  }, [highlightId, loading, profiles, visibleCount]);
+  }, [highlightId, loading, shownProfiles, visibleCount]);
 
   useEffect(() => {
     if (tab !== "groups" || roomTarget === null || roomFeed.loading || !roomFeed.loaded) return;
@@ -428,9 +432,7 @@ export default function App() {
   );
   const canStartGroup = myProfile && !myProfile.group_id;
   const capacities = campusCapacities(campus);
-  const fullMatches = profiles.filter(profile => matches.get(profile.id)?.percent === 100);
   const filtersActive = Object.values(filters).some(value => value !== "") || matchingOnly;
-  const shownProfiles = matchingOnly ? fullMatches : profiles;
   const profileOpen = modal === "create" || modal === "edit";
   const profileAction = () => setModal(myProfile ? "edit" : "create");
 
@@ -604,7 +606,7 @@ export default function App() {
           />
         )}
 
-        {activeFeed.loading && <p className="feed-status" role="status">{loading ? "Загружаем анкеты и комнаты…" : "Обновляем подборку…"}</p>}
+        {(loading || activeFeed.loading) && <p className="feed-status" role="status">{loading ? "Загружаем анкеты и комнаты…" : "Обновляем подборку…"}</p>}
         {loading && <div className="feed-skeleton" aria-hidden="true">{[1,2,3].map(n => <div key={n}><span /><i /><i /></div>)}</div>}
         {error && <div className="feed-error" role="alert"><p>{error}</p>{activeFeed.errorStatus === 401 && access?.telegram_app_url ? <a className="access-gate__button" href={access.telegram_app_url}>Открыть приложение заново →</a> : <button type="button" onClick={() => { setError(""); activeFeed.reload(); }}>Попробовать ещё раз</button>}</div>}
 
