@@ -13,8 +13,31 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 import config
 from database import Base, get_db
+from helpers import _feed_msgs
 from main import app
 from models import Block, Group, Profile
+
+
+class FeedNotificationTests(unittest.TestCase):
+    def test_profile_button_opens_the_mini_app_directly(self):
+        profile = Profile(id=42, name='Fixture', gender='male', campus='disk')
+        cases = [
+            ('FixtureBot', '', 'tg://resolve?domain=FixtureBot&startapp=p42'),
+            ('FixtureBot', 'neighbors', 'tg://resolve?domain=FixtureBot&appname=neighbors&startapp=p42'),
+            ('', '', 'https://fixture.invalid/?profile=42'),
+        ]
+        for username, short_name, url in cases:
+            with self.subTest(username=username, short_name=short_name), patch.multiple(
+                config,
+                FEED_CHAT_ID=-100123,
+                TELEGRAM_BOT_USERNAME=username,
+                TELEGRAM_MINIAPP_SHORT_NAME=short_name,
+                SITE_URL='https://fixture.invalid',
+            ):
+                message, = _feed_msgs(profile)
+                button, = message['reply_markup']['inline_keyboard'][0]
+                self.assertEqual(button['url'], url)
+
 
 class FeedTests(unittest.TestCase):
     def setUp(self):

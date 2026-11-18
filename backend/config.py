@@ -66,21 +66,10 @@ FEED_THREAD_ID = int(_feed_thread) if _feed_thread.isdigit() else None
 
 
 def profile_link(profile_id: int) -> str:
-    """Ссылка, открывающая мини-апп сразу на нужной анкете.
-
-    Внутри группы кнопка может быть только обычной url-кнопкой (web_app
-    Telegram разрешает лишь в личке), поэтому ведём через t.me — он откроет
-    мини-апп, а не браузер. start_param разбирает фронтенд.
-    """
-    param = f"p{profile_id}"
+    """Открывает анкету в мини-аппе через нативную ссылку Telegram."""
     if TELEGRAM_BOT_USERNAME:
-        if TELEGRAM_MINIAPP_SHORT_NAME:
-            return (
-                f"https://t.me/{TELEGRAM_BOT_USERNAME}/"
-                f"{TELEGRAM_MINIAPP_SHORT_NAME}?startapp={param}"
-            )
-        return f"https://t.me/{TELEGRAM_BOT_USERNAME}?startapp={param}"
-    # Бота нет — остаётся обычный сайт: тот же параметр читается из адреса.
+        app = f"&appname={TELEGRAM_MINIAPP_SHORT_NAME}" if TELEGRAM_MINIAPP_SHORT_NAME else ""
+        return f"tg://resolve?domain={TELEGRAM_BOT_USERNAME}{app}&startapp=p{profile_id}"
     return f"{SITE_URL}/?profile={profile_id}"
 
 
