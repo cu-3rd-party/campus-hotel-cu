@@ -6,29 +6,9 @@ export const DEFAULT_CAMPUS = "disk";
 export const CAMPUS = { disk: "Диск", cloud: "Облако" };
 const CAMPUS_CAPACITIES = { disk: [2, 3, 4], cloud: [2, 3] };
 
-// Блок — две комнаты с общим входом, вместе на 6 человек: 2+4 или 3+3.
-// Бывает только в «Диске».
-export const BLOCK_SIZE = 6;
-const CAMPUS_WITH_BLOCKS = ["disk"];
-
 /** Какие комнаты бывают в этом кампус-отеле: [2, 3, 4] или [2, 3]. */
 export function campusCapacities(campus) {
   return CAMPUS_CAPACITIES[campus] || CAMPUS_CAPACITIES[DEFAULT_CAMPUS];
-}
-
-/** Есть ли в этом кампус-отеле блоки. */
-export function campusHasBlocks(campus) {
-  return CAMPUS_WITH_BLOCKS.includes(campus);
-}
-
-/**
- * Комната какого размера соберёт с этой полный блок.
- * null — пары не существует (в отеле нет блоков или такой комнаты там не бывает).
- */
-export function blockPartner(campus, capacity) {
-  if (!campusHasBlocks(campus)) return null;
-  const partner = BLOCK_SIZE - capacity;
-  return campusCapacities(campus).includes(partner) ? partner : null;
 }
 
 /** «2–4» / «2–3» — для подписей вроде «Комнаты на 2–3 человека». */
@@ -107,19 +87,19 @@ export function roomLabel(capacities) {
 }
 
 /**
- * Характеристики анкеты для показа: [иконка, подпись, значение].
+ * Характеристики анкеты: [иконка, подпись, функция для отображения, поле].
  * Один источник правды — используется и в карточке, и в раскрытом участнике.
  */
 export const SPECS = [
-  ["🌙", "Режим сна", (p) => SLEEP[p.sleep_schedule]],
-  ["⏰", "Подъём", (p) => WAKEUP[p.wakeup]],
-  ["🚿", "Душ", (p) => SHOWER[p.shower]],
-  ["✨", "Аккуратность", (p) => TIDINESS[p.tidiness]],
-  ["🌡️", "Температура", (p) => TEMPERATURE[p.temperature]],
-  ["🔊", "Звук", (p) => NOISE[p.noise]],
-  ["🍳", "Готовка", (p) => cookingLabel(p.cooking)],
-  ["🎉", "Гости", (p) => GUESTS[p.guests]],
-  ["🚭", "Курение", (p) => SMOKING[p.smoking]],
-  ["🍻", "Алкоголь", (p) => ALCOHOL[p.alcohol]],
-  ["😴", "Храп", (p) => SNORING[p.snoring]],
+  ["🌙", "Режим сна", (p) => SLEEP[p.sleep_schedule], "sleep_schedule"],
+  ["⏰", "Подъём", (p) => WAKEUP[p.wakeup], "wakeup"],
+  ["🚿", "Душ", (p) => SHOWER[p.shower], "shower"],
+  ["✨", "Аккуратность", (p) => TIDINESS[p.tidiness], "tidiness"],
+  ["🌡️", "Температура", (p) => TEMPERATURE[p.temperature], "temperature"],
+  ["🔊", "Звук", (p) => NOISE[p.noise], "noise"],
+  ["🍳", "Готовка", (p) => cookingLabel(p.cooking), "cooking"],
+  ["🎉", "Гости", (p) => GUESTS[p.guests], "guests"],
+  ["🚭", "Курение", (p) => SMOKING[p.smoking], "smoking"],
+  ["🍻", "Алкоголь", (p) => ALCOHOL[p.alcohol], "alcohol"],
+  ["😴", "Храп", (p) => SNORING[p.snoring], "snoring"],
 ];

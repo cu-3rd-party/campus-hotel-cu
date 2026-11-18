@@ -5,7 +5,7 @@ import { SPECS } from "../labels.js";
  * Пришло на смену стене одинаковых тегов: с десятком параметров теги
  * сливались в кашу, особенно на телефоне.
  */
-export default function ProfileSpecs({ profile }) {
+export default function ProfileSpecs({ profile, match }) {
   // Анкета, где ничего не выбрано, не должна оставлять пустую рамку с
   // разделителями — в этом случае блока просто нет.
   const filled = SPECS.filter(([, , read]) => read(profile));
@@ -13,8 +13,9 @@ export default function ProfileSpecs({ profile }) {
 
   return (
     <dl className="specs">
-      {filled.map(([icon, label, read]) => {
+      {filled.map(([icon, label, read, key]) => {
         const value = read(profile);
+        const comparison = match?.fields.get(key);
         return (
           <div className="spec" key={label}>
             <span className="spec__icon" aria-hidden="true">
@@ -22,7 +23,11 @@ export default function ProfileSpecs({ profile }) {
             </span>
             <span className="spec__text">
               <dt className="spec__label">{label}</dt>
-              <dd className="spec__value">{value}</dd>
+              <dd className="spec__value">
+                {comparison?.same && <span className="spec__match" aria-label="Совпадает">✓ </span>}
+                {value}
+                {comparison && !comparison.same && <small className="spec__difference">У тебя: {comparison.mine}</small>}
+              </dd>
             </span>
           </div>
         );

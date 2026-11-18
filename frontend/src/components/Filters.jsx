@@ -149,8 +149,8 @@ export default function Filters({
       <div className="filters__bar">
         <input
           className="filters__search"
-          type="text"
-          placeholder="Имя или пара слов о себе"
+          type="search"
+          placeholder="Имя или интерес"
           aria-label="Поиск соседей по имени и описанию"
           value={filters.search}
           onChange={set("search")}
@@ -169,15 +169,15 @@ export default function Filters({
         </button>
       </div>
 
-      {idealCount > 0 && (
+      {(idealCount > 0 || idealOn) && (
         <button
           type="button"
           className={`filters__ideal${idealOn ? " filters__ideal--on" : ""}`}
           onClick={onToggleIdeal}
           aria-pressed={idealOn}
         >
-          <span aria-hidden="true">✨</span>
-          {idealOn ? "Показать всех" : "Показать идеального соседа"}
+          <span aria-hidden="true">✓</span>
+          {idealOn ? "Показать всех" : "Только полные совпадения"}
           <span className="filters__ideal-count">{idealCount}</span>
         </button>
       )}
