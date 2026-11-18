@@ -1,35 +1,38 @@
-import { readStored, writeStored } from "./storage.mjs";
 import { useEffect, useState } from "react";
+import { readStored, writeStored } from "./storage.mjs";
 
 const KEY = "obshaga_theme";
+const SYSTEM_DARK = "(prefers-color-scheme: dark)";
+const themeFrom = (query) => query.matches ? "dark" : "light";
 
-// mode: "system" | "light" | "dark"
-export function applyTheme(mode) {
-  const dark =
-    mode === "dark" ||
-    (mode === "system" &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches);
-  document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+function readPreference() {
+  const saved = readStored(KEY);
+  return saved === "light" || saved === "dark" ? saved : null;
 }
 
 export function useTheme() {
-  const [mode, setMode] = useState(() => readStored(KEY) || "system");
+  const [preference, setPreference] = useState(readPreference);
+  const [systemTheme, setSystemTheme] = useState(() => themeFrom(window.matchMedia(SYSTEM_DARK)));
+  const theme = preference ?? systemTheme;
 
   useEffect(() => {
-    applyTheme(mode);
-    writeStored(KEY, mode);
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
 
-    if (mode === "system") {
-      const mq = window.matchMedia("(prefers-color-scheme: dark)");
-      const handler = () => applyTheme("system");
-      mq.addEventListener("change", handler);
-      return () => mq.removeEventListener("change", handler);
-    }
-  }, [mode]);
+  useEffect(() => {
+    if (preference) return;
+    const query = window.matchMedia(SYSTEM_DARK);
+    const sync = () => setSystemTheme(themeFrom(query));
+    query.addEventListener("change", sync);
+    sync();
+    return () => query.removeEventListener("change", sync);
+  }, [preference]);
 
-  // system → light → dark → system
-  const cycle = () =>
-    setMode((m) => (m === "system" ? "light" : m === "light" ? "dark" : "system"));
+  const toggle = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    writeStored(KEY, next);
+    setPreference(next);
+  };
 
-  return { mode, cycle };
+  return { theme, toggle };
 }
