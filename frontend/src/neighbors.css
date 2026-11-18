@@ -51,9 +51,9 @@
   isolation: isolate;
   overflow: hidden;
   margin-bottom: 18px;
-  padding: 22px clamp(20px, 4vw, 46px) 26px;
-  border-bottom: 3px solid var(--neighbors-yellow);
-  border-radius: 19px;
+  padding: 22px clamp(20px, 4vw, 46px) 28px;
+  border-bottom: 1px solid var(--neighbors-yellow);
+  border-radius: 19px 19px 0 0;
   background: var(--neighbors-hero);
   color: var(--neighbors-hero-text);
 }
@@ -331,7 +331,7 @@
   .neighbor-app .header__inner { min-height: 54px; padding: 6px 15px; }
   .neighbor-app .header__cta { display: none; }
   .neighbor-app .container { padding: 0 13px 30px; }
-  .neighbors-hero { margin-inline: -13px; margin-bottom: 11px; border-radius: 0; padding: 15px 14px 18px; }
+  .neighbors-hero { margin-inline: -13px; margin-bottom: 11px; border-radius: 0; padding: 15px 14px 20px; }
   .neighbors-hero h1 { font-size: clamp(40px, 11vw, 52px); }
   .neighbors-hero__label { margin-bottom: 8px; }
   .neighbors-heading { margin: 16px 0; }
