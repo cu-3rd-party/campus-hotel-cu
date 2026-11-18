@@ -26,9 +26,6 @@ const read = (path, fallback, options = {}) => requestJSON(`${BASE}${path}`, fal
 export function fetchProfiles(filters = {}, options = {}) {
   return read(`/profiles?${query(filters)}`, "Не удалось загрузить анкеты", options);
 }
-export function fetchIdealProfiles(profileId, options = {}) {
-  return read(`/profiles/ideal${profileId ? `?profile_id=${profileId}` : ""}`, "Не удалось подобрать соседей", options);
-}
 export function fetchGroups(filters = {}, options = {}) {
   return read(`/groups?${query(filters)}`, "Не удалось загрузить комнаты", options);
 }
@@ -88,54 +85,6 @@ export async function changeGroupCapacity(groupId, profileId, capacity) {
 
 export async function leaveGroup(groupId, profileId) {
   return requestJSON(`${BASE}/groups/${groupId}/leave`, "Не удалось выйти из комнаты", {
-    method: "POST",
-    headers: JSON_HEADERS(),
-    body: JSON.stringify({ profile_id: profileId }),
-  });
-}
-
-// ===== Блоки: две комнаты по 6 человек вместе (2+4 или 3+3) =====
-
-export function fetchBlocks(filters = {}, options = {}) {
-  return read(`/blocks?${query(filters)}`, "Не удалось загрузить блоки", options);
-}
-
-/** Комнаты, с которыми моя соберёт полный блок — подбирает сервер по размеру. */
-export async function fetchBlockCandidates(groupId) {
-  return read(`/groups/${groupId}/block-candidates`, "Не удалось загрузить комнаты для блока");
-}
-
-/** Заявки на блок моей комнаты — и входящие, и исходящие. */
-export async function fetchBlockRequests(groupId) {
-  return read(`/groups/${groupId}/block-requests?status=pending`, "Не удалось загрузить заявки на блок");
-}
-
-export async function requestBlock(profileId, toGroupId) {
-  return requestJSON(`${BASE}/blocks/requests`, "Не удалось позвать комнату в блок", {
-    method: "POST",
-    headers: JSON_HEADERS(),
-    body: JSON.stringify({ profile_id: profileId, to_group_id: toGroupId }),
-  });
-}
-
-export async function voteBlockRequest(requestId, profileId, approve) {
-  return requestJSON(`${BASE}/blocks/requests/${requestId}/vote`, "Не удалось ответить на предложение", {
-    method: "POST",
-    headers: JSON_HEADERS(),
-    body: JSON.stringify({ profile_id: profileId, approve }),
-  });
-}
-
-export async function cancelBlockRequest(requestId, profileId) {
-  return requestJSON(`${BASE}/blocks/requests/${requestId}/cancel`, "Не удалось отменить предложение", {
-    method: "POST",
-    headers: JSON_HEADERS(),
-    body: JSON.stringify({ profile_id: profileId }),
-  });
-}
-
-export async function leaveBlock(blockId, profileId) {
-  return requestJSON(`${BASE}/blocks/${blockId}/leave`, "Не удалось выйти из блока", {
     method: "POST",
     headers: JSON_HEADERS(),
     body: JSON.stringify({ profile_id: profileId }),

@@ -308,8 +308,7 @@ def _close_group_blocks(db: Session, group: models.Group, note: str) -> List[dic
             if other.id != group.id:
                 msgs += _group_msgs(
                     other,
-                    f"🧩 Ваш блок распался: {note}.\n"
-                    f"Можно объединиться с другой комнатой: {config.SITE_URL}",
+                    f"Прежний блок комнат распущен: {note}.",
                 )
         block_flow.dissolve(db, block)
 
@@ -610,70 +609,6 @@ def _room_name(group: models.Group) -> str:
     """
     who = ", ".join(_h(m.name) for m in group.members)
     return f"комната на {group.capacity}" + (f" ({who})" if who else "")
-
-
-def _apply_block_vote(
-    db: Session, req: models.BlockRequest, voter: models.Profile, approve: bool
-) -> tuple[str, List[dict]]:
-    """Записывает голос, пересчитывает статус и СОБИРАЕТ уведомления.
-
-    Как и у заявок в комнату, сообщения не шлёт: их отправят в фоне уже после
-    ответа клиенту.
-    """
-    vote = (
-        db.query(models.BlockRequestVote)
-        .filter(
-            models.BlockRequestVote.request_id == req.id,
-            models.BlockRequestVote.member_id == voter.id,
-        )
-        .first()
-    )
-    if vote:
-        vote.approve = approve  # передумал — перезаписываем
-    else:
-        db.add(
-            models.BlockRequestVote(
-                request_id=req.id, member_id=voter.id, approve=approve
-            )
-        )
-    db.flush()
-    db.refresh(req)
-
-    status = block_flow.evaluate(db, req)
-    also_closed: List[models.BlockRequest] = []
-    if status == block_flow.APPROVED:
-        also_closed = block_flow.close_obsolete(
-            db, [req.from_group, req.to_group], keep=req
-        )
-    db.commit()
-    db.refresh(req)
-
-    msgs: List[dict] = []
-    if status == block_flow.APPROVED:
-        for group, other in (
-            (req.from_group, req.to_group),
-            (req.to_group, req.from_group),
-        ):
-            msgs += _group_msgs(
-                group,
-                f"🧩 Блок собран! Ваши соседи по блоку — <b>{_room_name(other)}</b>.\n"
-                f"{config.SITE_URL}",
-            )
-        for other_req in also_closed:
-            # Обе стороны несостоявшегося блока ждали ответа — говорим обеим.
-            for group in (other_req.from_group, other_req.to_group):
-                msgs += _group_msgs(
-                    group,
-                    "ℹ️ Предложение про блок отменено: комната успела "
-                    "объединиться с другой.",
-                )
-    elif status == block_flow.REJECTED:
-        msgs += _group_msgs(
-            req.from_group,
-            f"😔 <b>{_room_name(req.to_group)}</b> отказалась объединяться в блок. "
-            f"Есть другие комнаты: {config.SITE_URL}",
-        )
-    return status, msgs
 
 
 def _check_bot_secret(x_bot_secret: Optional[str] = Header(None)) -> None:

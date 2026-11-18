@@ -146,7 +146,7 @@ export default function GroupCard({
     const shown = members.slice(0, 4);
     const rest = members.length - shown.length;
     return (
-      <article className="gcard gcard--full gcard--collapsed">
+      <article id={`room-${id}`} tabIndex={-1} className="gcard gcard--full gcard--collapsed">
         <button
           type="button"
           className="gcard__peek"
@@ -162,11 +162,7 @@ export default function GroupCard({
           <span className="gcard__peek-info">
             <span className="gcard__peek-title">
               Комната на {capacity}
-              {group.block_id && (
-                <span className="gcard__block" title="Комната объединена в блок">
-                  🧩
-                </span>
-              )}
+
             </span>
             <span className="gcard__peek-meta">
               {members.map((m) => m.name).join(", ")}
@@ -181,18 +177,12 @@ export default function GroupCard({
   }
 
   return (
-    <article className={`gcard${full ? " gcard--full" : ""}`}>
+    <article id={`room-${id}`} tabIndex={-1} className={`gcard${full ? " gcard--full" : ""}`}>
       <div className="gcard__head">
         <div>
           <h3 className="gcard__title">
             Комната на {capacity}
-            {/* Комната в блоке — размер у неё уже не поменять, и это видно
-                сразу, а не только когда кнопка окажется недоступной. */}
-            {group.block_id && (
-              <span className="gcard__block" title="Комната объединена в блок">
-                🧩 в блоке
-              </span>
-            )}
+
           </h3>
           {/* Только состояние комнаты, без чисел: сколько занято и сколько
               свободно, уже говорят счётчик справа и пустые места в списке. */}
@@ -242,12 +232,11 @@ export default function GroupCard({
 
       {/* Планы меняются: собирались вчетвером, а набралось двое — комнату
           можно ужать, не распуская её. Меньше, чем вас уже есть, — нельзя,
-          поэтому такие размеры недоступны. В блоке размер зафиксирован:
-          в блоке ровно 6 человек, и другой размер его сломает. */}
+          поэтому такие размеры недоступны. */}
       {iAmMember && typeof onChangeCapacity === "function" && (
         <div className="gcard__resize">
           <span className="gcard__resize-label">
-            {group.block_id ? "Размер зафиксирован блоком:" : "Размер комнаты:"}
+            Размер комнаты:
           </span>
           <div className="gcard__resize-btns">
             {capacities.map((n) => (
@@ -257,19 +246,8 @@ export default function GroupCard({
                   n === capacity ? " gcard__resize-btn--on" : ""
                 }`}
                 onClick={() => onChangeCapacity(id, n)}
-                disabled={
-                  busy ||
-                  n === capacity ||
-                  n < members.length ||
-                  Boolean(group.block_id)
-                }
-                title={
-                  group.block_id
-                    ? "Комната в блоке — сначала выйдите из блока"
-                    : n < members.length
-                      ? `Вас уже ${members.length} — не поместитесь`
-                      : `Сделать комнатой на ${n}`
-                }
+                disabled={busy || n === capacity || n < members.length}
+                title={n < members.length ? `Вас уже ${members.length} — не поместитесь` : `Сделать комнатой на ${n}`}
                 aria-pressed={n === capacity}
               >
                 на {n}

@@ -46,6 +46,14 @@ class BotTests(IsolatedAsyncioTestCase):
             await bot.on_vote(call)
             client.assert_not_called()
         call.answer.assert_awaited_once()
+    async def test_old_block_button_is_closed_without_contacting_the_backend(self):
+        message = SimpleNamespace(edit_reply_markup=AsyncMock())
+        call = SimpleNamespace(data='block:7:yes', answer=AsyncMock(), message=message)
+        with patch.object(bot, 'api_client') as client:
+            await bot.on_block(call)
+            client.assert_not_called()
+        call.answer.assert_awaited_once_with('Объединение комнат в блоки отключено.', show_alert=True)
+        message.edit_reply_markup.assert_awaited_once_with(reply_markup=None)
     async def test_transient_failure_does_not_retry_a_mutation_or_claim_success(self):
         post = AsyncMock(side_effect=httpx.ConnectTimeout('fixture timeout'))
         @asynccontextmanager

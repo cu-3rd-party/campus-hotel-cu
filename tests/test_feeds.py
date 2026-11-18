@@ -66,7 +66,53 @@ class FeedTests(unittest.TestCase):
         self.assertEqual(self.client.get('/api/blocks?gender=male&campus=cloud').json(), [])
     def test_authenticated_feed_is_not_made_public_by_the_optimization(self):
         with patch.object(config, 'TELEGRAM_BOT_TOKEN', 'fixture-token'):
-            for endpoint in ['/api/profiles', '/api/groups', '/api/blocks']:
+            for endpoint in ['/api/profiles', '/api/profiles?recruiting=true', '/api/groups', '/api/blocks']:
                 self.assertEqual(self.client.get(endpoint).status_code, 401)
+
+    def test_recruiting_feed_counts_room_members_before_filtering_profiles(self):
+        with self.Session() as db:
+            open_room = Group(capacity=4, gender='male', campus='disk')
+            full_room = Group(capacity=2, gender='male', campus='disk')
+            other_campus = Group(capacity=3, gender='male', campus='cloud')
+            other_gender = Group(capacity=3, gender='female', campus='disk')
+            fixtures = [
+                ('Matching member', open_room, 'male', 'disk', '2'),
+                ('Another member', open_room, 'male', 'disk', '2'),
+                ('Full first', full_room, 'male', 'disk', '2'),
+                ('Full second', full_room, 'male', 'disk', '2'),
+                ('Matching single', None, 'male', 'disk', '3,4'),
+                ('Matching other campus', other_campus, 'male', 'cloud', ''),
+                ('Matching other gender', other_gender, 'female', 'disk', ''),
+            ]
+            db.add_all([
+                Profile(name=name, telegram=f'fixture{i}', group=room, gender=gender,
+                        campus=campus, room_capacities=sizes)
+                for i, (name, room, gender, campus, sizes) in enumerate(fixtures)
+            ])
+            db.commit()
+
+        self.count = 0
+        response = self.client.get('/api/profiles', params={
+            'recruiting': True, 'gender': 'male', 'campus': 'disk',
+            'search': 'Matching', 'room_capacity': 4,
+        })
+        self.assertEqual(response.status_code, 200, response.text)
+        found = {p['name']: p for p in response.json()}
+        self.assertEqual(set(found), {'Matching member', 'Matching single'})
+        self.assertEqual(found['Matching member']['open_room'], {'capacity': 4, 'spots_left': 2})
+        self.assertNotIn('open_room', found['Matching single'])
+        self.assertEqual(self.count, 1)
+
+        feed = self.client.get('/api/profiles?recruiting=true&gender=male&campus=disk').json()
+        self.assertEqual({p['name'] for p in feed}, {'Matching member', 'Another member', 'Matching single'})
+        legacy = self.client.get('/api/profiles?without_group=true&gender=male&campus=disk').json()
+        self.assertEqual([p['name'] for p in legacy], ['Matching single'])
+
+        with self.Session() as db:
+            room = db.get(Group, found['Matching member']['group_id'])
+            room.capacity = 2
+            db.commit()
+        feed = self.client.get('/api/profiles?recruiting=true&gender=male&campus=disk').json()
+        self.assertEqual([p['name'] for p in feed], ['Matching single'])
 
 if __name__ == '__main__': unittest.main()

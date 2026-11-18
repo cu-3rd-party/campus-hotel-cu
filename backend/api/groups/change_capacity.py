@@ -33,15 +33,6 @@ def change_group_capacity(
         raise HTTPException(
             status_code=403, detail="Размер комнаты меняют только те, кто в ней живёт"
         )
-    # В блоке ровно 6 человек: изменить размер комнаты — значит сломать его.
-    # Сами блок не распускаем: это решение соседей, а не побочный эффект.
-    if group.block_id:
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                "Комната в блоке — её размер зафиксирован. Сначала выйдите из блока"
-            ),
-        )
     _assert_capacity_allowed(group.campus, payload.capacity)
 
     taken = len(group.members)

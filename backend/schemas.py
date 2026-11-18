@@ -185,6 +185,15 @@ class ProfileOut(ProfileBase):
         from_attributes = True
 
 
+class RecruitingRoomOut(BaseModel):
+    capacity: int
+    spots_left: int
+
+
+class FeedProfileOut(ProfileOut):
+    open_room: Optional[RecruitingRoomOut] = None
+
+
 class GroupMemberOut(BaseModel):
     """Карточка жильца комнаты.
 

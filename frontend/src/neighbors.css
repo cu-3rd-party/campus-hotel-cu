@@ -1,0 +1,374 @@
+.neighbor-app {
+  --accent: #78600f;
+  --accent-dark: #59460a;
+  --ink: #282926;
+  --ink-soft: #565951;
+  --bg: #f2f0e9;
+  --surface: #faf9f3;
+  --border: #dedbd0;
+  --solid-bg: #34382d;
+  --solid-text: #faf9f3;
+  --course-tint: #f6eabd;
+  --photo-bg: #ede5cd;
+  --neighbors-hero: #232620;
+  --neighbors-hero-text: #faf8ec;
+  --neighbors-yellow: #f3d54c;
+  --neighbors-match-bg: #fff9e7;
+  --neighbors-match-edge: #c9ad4e;
+  --neighbors-room-bg: #e8eee1;
+  --neighbors-room-ink: #364b35;
+  min-height: 100vh;
+  color: var(--ink);
+  background: var(--bg);
+}
+
+[data-theme="dark"] .neighbor-app {
+  --accent: #f3d56c;
+  --accent-dark: #ffe48a;
+  --ink: #f0eee5;
+  --ink-soft: #c2c3b7;
+  --bg: #20221e;
+  --surface: #292c25;
+  --border: #47493f;
+  --solid-bg: #e8cb60;
+  --solid-text: #28261a;
+  --course-tint: #463c26;
+  --photo-bg: #393826;
+  --neighbors-hero: #181a16;
+  --neighbors-match-bg: #302c22;
+  --neighbors-match-edge: #8f783d;
+  --neighbors-room-bg: #343f31;
+  --neighbors-room-ink: #cde3c6;
+}
+
+.neighbor-app--cloud {
+  --neighbors-yellow: #cfc1eb;
+  --neighbors-hero: #282231;
+}
+
+.neighbors-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  margin-bottom: 18px;
+  padding: 22px clamp(20px, 4vw, 46px) 28px;
+  border-bottom: 1px solid var(--neighbors-yellow);
+  border-radius: 19px 19px 0 0;
+  background: var(--neighbors-hero);
+  color: var(--neighbors-hero-text);
+}
+
+.neighbors-hero__label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  color: var(--neighbors-yellow);
+  font-size: 11px;
+  font-weight: 730;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+
+.neighbors-hero__label span {
+  width: 16px;
+  height: 16px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  background: repeating-radial-gradient(circle, currentColor 0 1px, transparent 1px 3px);
+}
+
+.neighbors-hero h1,
+.neighbors-heading {
+  margin: 0;
+  font-size: clamp(38px, 9vw, 65px);
+  font-weight: 760;
+  line-height: .95;
+  letter-spacing: -.075em;
+}
+
+.neighbors-hero h1 em {
+  color: var(--neighbors-yellow);
+  font-style: normal;
+}
+
+.neighbors-heading {
+  margin-bottom: 20px;
+  font-size: clamp(33px, 7vw, 50px);
+}
+
+.neighbors-hero__graphic {
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 0 auto;
+  width: clamp(126px, 41%, 450px);
+  color: var(--neighbors-yellow);
+  background:
+    linear-gradient(to right, var(--neighbors-hero), transparent 26%),
+    repeating-linear-gradient(to right, #e8d76524 0 1px, transparent 1px 25px),
+    repeating-linear-gradient(to bottom, #e8d76524 0 1px, transparent 1px 25px);
+}
+
+.neighbors-hero__graphic::before,
+.neighbors-hero__graphic::after {
+  position: absolute;
+  top: 57%;
+  left: 53%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  content: "";
+}
+
+.neighbors-hero__graphic::before {
+  width: clamp(94px, 25vw, 174px);
+  aspect-ratio: 1;
+  border: 1px solid currentColor;
+  box-shadow: 0 0 0 12px #f4d86f19, 0 0 0 13px #f4d86f45;
+  background:
+    linear-gradient(38deg, transparent 49.4%, #f4d86f8a 50%, transparent 50.7%),
+    linear-gradient(-41deg, transparent 49.4%, #f4d86f8a 50%, transparent 50.7%);
+  opacity: .72;
+}
+
+.neighbors-hero__graphic::after {
+  width: 11px;
+  height: 11px;
+  background: currentColor;
+}
+
+.neighbors-nav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.neighbors-nav button {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  min-height: 44px;
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-weight: 660;
+  cursor: pointer;
+}
+
+.neighbors-nav button[aria-current="page"] {
+  border-color: transparent;
+  background: var(--course-tint);
+  color: var(--ink);
+}
+
+.neighbors-nav .neighbors-nav__profile { display: none; }
+
+.neighbors-nav__icon {
+  position: relative;
+  display: inline-block;
+  width: 22px;
+  height: 19px;
+}
+
+.neighbors-nav__icon::before,
+.neighbors-nav__icon::after {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1.4px solid currentColor;
+  content: "";
+}
+
+.neighbors-nav__icon--people::before,
+.neighbors-nav__icon--profile::before {
+  top: 2px;
+  left: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.neighbors-nav__icon--people::before { box-shadow: 6px 1px 0 -1px currentColor; }
+
+.neighbors-nav__icon--people::after,
+.neighbors-nav__icon--profile::after {
+  bottom: 3px;
+  left: 4px;
+  width: 14px;
+  height: 7px;
+  border-radius: 7px 7px 3px 3px;
+}
+
+.neighbors-nav__icon--rooms::before {
+  inset: 2px 5px 2px 5px;
+  border-radius: 2px 2px 0 0;
+}
+
+.neighbors-nav__icon--rooms::after {
+  top: 9px;
+  right: 8px;
+  width: 2px;
+  height: 2px;
+  border: 0;
+  background: currentColor;
+}
+
+.neighbor-app .filters { max-width: 640px; margin-bottom: 9px; }
+.neighbor-app .filters__bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
+.neighbor-app .filters__bar .filters__search { width: 100%; min-width: 0; border-radius: 10px; }
+.neighbor-app .filters__search::placeholder { color: var(--ink-soft); opacity: 1; }
+.neighbor-app .filters__toggle { gap: 6px; border-radius: 10px; }
+.neighbor-app .filters__ideal { color: var(--accent); border-color: var(--border); }
+.neighbor-app .filters__ideal--on { background: var(--course-tint); }
+.neighbor-app .filters__ideal-count,
+.neighbor-app .filters__badge { background: var(--neighbors-yellow); color: #2b2716; }
+.neighbor-app .neighbors-result-count { margin: 7px 0 8px; }
+.neighbor-app .grid--neighbors {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr));
+  gap: 9px;
+}
+
+.neighbor-app .roommate-card {
+  gap: 0;
+  min-width: 0;
+  padding: 9px;
+  border-radius: 13px;
+}
+
+.neighbor-app .roommate-card--match {
+  border-color: var(--neighbors-match-edge);
+  background: var(--neighbors-match-bg);
+}
+
+.roommate-card__preview {
+  display: grid;
+  grid-template-columns: clamp(54px, 17vw, 70px) minmax(0, 1fr);
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.neighbor-app .roommate-card .card__photo {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-height: 75px;
+  aspect-ratio: auto;
+  place-items: center;
+  border-radius: 8px;
+}
+
+.neighbor-app .roommate-card .card__photo img { height: 100%; object-fit: cover; }
+.roommate-card__copy { display: block; min-width: 0; }
+.roommate-card__top { display: flex; align-items: start; justify-content: space-between; gap: 7px; }
+.neighbor-app .roommate-card .card__name { flex-wrap: wrap; font-size: 16px; font-weight: 730; line-height: 1.25; overflow-wrap: anywhere; }
+.roommate-card__chevron { font-size: 20px; color: var(--ink-soft); line-height: 1; }
+.roommate-card__summary { display: block; margin-top: 3px; font-size: 12px; color: var(--ink-soft); overflow-wrap: anywhere; }
+
+.neighbor-app .roommate-card__preview .card__bio {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 5px 0 0;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.38;
+  overflow-wrap: anywhere;
+}
+
+.neighbor-app .card__ideal,
+.neighbor-app .card__match,
+.neighbor-app .card__recruiting {
+  display: inline-block;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 6px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 730;
+  line-height: 1.25;
+}
+
+.neighbor-app .card__ideal { background: var(--neighbors-yellow); color: #2b2716; }
+.neighbor-app .card__match { background: var(--bg); color: var(--ink-soft); }
+.neighbor-app .card__recruiting { display: table; background: var(--neighbors-room-bg); color: var(--neighbors-room-ink); }
+
+.card__room-action {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 680;
+  cursor: pointer;
+}
+
+.roommate-card > .card__room-action {
+  margin-top: 6px;
+  margin-inline-start: calc(clamp(54px, 17vw, 70px) + 10px);
+}
+
+.neighbor-app .gcard { scroll-margin-top: 86px; scroll-margin-bottom: 84px; }
+.neighbor-app .gcard:focus { outline: 2px solid var(--accent); outline-offset: 3px; }
+.roommate-dialog .modal { max-width: 495px; }
+.roommate-dialog__content .card__bio { margin: 0; }
+.roommate-dialog__match { padding: 9px 11px; border-radius: 8px; background: var(--course-tint); }
+.roommate-dialog__match p { margin: 3px 0 0; font-size: 12px; color: var(--ink-soft); }
+.spec__match { color: var(--accent); }
+.spec__difference { display: block; font-size: 11px; color: var(--ink-soft); }
+
+@media (max-width: 720px) {
+  .neighbor-app .header__inner { min-height: 54px; padding: 6px 15px; }
+  .neighbor-app .header__cta { display: none; }
+  .neighbor-app .container { padding: 0 13px 30px; }
+  .neighbors-hero { margin-inline: -13px; margin-bottom: 11px; border-radius: 0; padding: 15px 14px 20px; }
+  .neighbors-hero h1 { font-size: clamp(40px, 11vw, 52px); }
+  .neighbors-hero__label { margin-bottom: 8px; }
+  .neighbors-heading { margin: 16px 0; }
+  .neighbor-app .filters__bar .filters__search { font-size: 16px; }
+  .neighbors-nav {
+    position: fixed;
+    z-index: 15;
+    inset: auto 0 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2px;
+    margin: 0;
+    padding: 4px 8px calc(5px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .neighbors-nav button,
+  .neighbors-nav .neighbors-nav__profile {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 3px;
+    min-height: 47px;
+    padding: 3px;
+    border: none;
+    border-radius: 9px;
+    background: transparent;
+    font-size: 11px;
+  }
+  .neighbors-nav button[aria-current="page"] { background: transparent; }
+  .neighbors-nav button[aria-current="page"] .neighbors-nav__icon {
+    width: 22px;
+    border-radius: 5px;
+    box-shadow: 0 0 0 3px var(--course-tint);
+    background: var(--course-tint);
+    color: var(--accent);
+  }
+  .neighbor-app .footer { padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
+  .roommate-dialog .modal { max-width: none; }
+}

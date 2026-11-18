@@ -1,33 +1,24 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   adminDeleteProfile,
-  cancelBlockRequest,
   cancelRequest,
   changeGroupCapacity,
   createGroup,
   createInvite,
-  fetchBlockCandidates,
-  fetchBlockRequests,
-  fetchBlocks,
   fetchConfig,
   fetchGroupRequests,
   fetchGroups,
-  fetchIdealProfiles,
   fetchMyInvites,
   fetchMyRequests,
   fetchProfile,
   respondInvite,
   fetchProfiles,
-  leaveBlock,
   leaveGroup,
-  requestBlock,
   requestJoin,
-  voteBlockRequest,
   voteRequest,
 } from "./api.js";
 import RoommateCard from "./components/RoommateCard.jsx";
 import GroupCard from "./components/GroupCard.jsx";
-import BlockPanel from "./components/BlockPanel.jsx";
 import Filters from "./components/Filters.jsx";
 import AddProfileModal from "./components/AddProfileModal.jsx";
 import AdminPanel from "./components/AdminPanel.jsx";
@@ -37,14 +28,12 @@ import ThemeToggle from "./components/ThemeToggle.jsx";
 import {
   CAMPUS,
   campusCapacities,
-  campusHasBlocks,
-  campusRoomsText,
 } from "./labels.js";
 import { getStartParam, initWebApp, isInsideTelegram } from "./telegram.js";
 import { releaseStuckLock } from "./useModalLock.js";
 import { useMyProfile } from "./useMyProfile.js";
 import { useDebouncedValue, useRemoteList } from "./useRemoteList.js";
-import { LatestRequest } from "./request.mjs";
+import { compareHabits } from "./habitMatch.js";
 import { readStored, writeStored, removeStored } from "./storage.mjs";
 import FeedSettings from "./components/FeedSettings.jsx";
 import AccessGate from "./components/AccessGate.jsx";
@@ -90,13 +79,9 @@ export default function App() {
   const [campus, setCampus] = useState(
     () => readStored(CAMPUS_KEY) || ""
   );
-  const [tab, setTab] = useState("singles"); // "singles" | "groups" | "blocks"
+  const [tab, setTab] = useState("singles");
+  const [roomTarget, setRoomTarget] = useState(null);
 
-  // Собранные блоки: две комнаты по 6 человек вместе. Только в «Диске».
-  // Что доступно моей комнате по блокам: с кем можно объединиться и кто уже
-  // позвал. Грузим отдельно — это внутреннее дело комнаты, а не общая лента.
-  const [blockCandidates, setBlockCandidates] = useState([]);
-  const [blockRequests, setBlockRequests] = useState([]);
   // Заявки в мою комнату (id заявки → голосуем) и мои исходящие заявки.
   const [incoming, setIncoming] = useState([]);
   const [myRequests, setMyRequests] = useState([]);
@@ -111,9 +96,7 @@ export default function App() {
   const [access, setAccess] = useState(null);
   const [accessFailed, setAccessFailed] = useState(false);
 
-  // «Идеальные соседи»: у кого совпали все мои параметры. Подбирает сервер.
-  const [idealIds, setIdealIds] = useState([]);
-  const [idealOn, setIdealOn] = useState(false);
+  const [matchingOnly, setMatchingOnly] = useState(false);
 
   // Анкета из ссылки в общей ленте: на неё надо прокрутить и подсветить её.
   // Читаем один раз при запуске — дальше это уже история, а не команда.
@@ -130,22 +113,21 @@ export default function App() {
   const identityAvailable = Boolean(access?.development_mode || isInsideTelegram());
   const enabled = Boolean(gender && campus && identityAvailable);
   const peopleFeed = useRemoteList(JSON.stringify(searchFilters), scope,
-    signal => fetchProfiles({ ...searchFilters, gender, campus, without_group: true }, { signal }), enabled);
+    signal => fetchProfiles({ ...searchFilters, gender, campus, recruiting: true }, { signal }), enabled);
   const roomFeed = useRemoteList(scope, scope,
     signal => fetchGroups({ gender, campus }, { signal }), enabled);
-  const blockFeed = useRemoteList(scope, scope,
-    signal => fetchBlocks({ gender, campus }, { signal }), enabled && campusHasBlocks(campus));
-  const profiles = peopleFeed.data, groups = roomFeed.data, blocks = blockFeed.data;
-  const setProfiles = peopleFeed.setData;
-  const activeFeed = tab === "groups" ? roomFeed : tab === "blocks" ? blockFeed : peopleFeed;
+  const { data: profiles, setData: setProfiles } = peopleFeed;
+  const groups = roomFeed.data;
+  const matches = useMemo(() => new Map(profiles.map(profile => [
+    profile.id, compareHabits(myProfile, profile),
+  ])), [myProfile, profiles]);
+  const activeFeed = tab === "groups" ? roomFeed : peopleFeed;
   const loading = activeFeed.loading && !activeFeed.loaded;
   const error = actionError || activeFeed.error;
   const [visibleCount, setVisibleCount] = useState(24);
-  const idealRequest = useRef(new LatestRequest());
   const inboxVersion = useRef(0);
   const busyRef = useRef(false);
-  useEffect(() => { setVisibleCount(24); }, [scope, searchFilters, idealOn]);
-  useEffect(() => () => idealRequest.current.cancel(), []);
+  useEffect(() => { setVisibleCount(24); }, [scope, searchFilters, matchingOnly]);
 
   function chooseGender(value) {
     writeStored(GENDER_KEY, value);
@@ -163,24 +145,6 @@ export default function App() {
     setCampus("");
   }
 
-  /**
-   * Идеальные соседи — отдельно от ленты, и это принципиально.
-   *
-   * Их сервер подбирает по моей анкете, перебирая все анкеты кампуса, и запрос
-   * бывает заметно медленнее остальных. Пока он стоял в одном Promise.all с
-   * лентой, лента ждала его — человек всё это время видел «Загрузка…» на весь
-   * экран, которую нечем листать. Подсказка не стоит того, чтобы задерживать
-   * главное: приходит — показываем кнопку, не приходит — просто живём без неё.
-   */
-  async function loadIdeal(myId) {
-    if (!myId) { idealRequest.current.cancel(); setIdealIds([]); return; }
-    return idealRequest.current.run(
-      signal => fetchIdealProfiles(myId, { signal }),
-      ideal => setIdealIds(ideal.map(profile => profile.id)),
-      () => setIdealIds([]),
-    );
-  }
-
   /** Заявки грузим только там, где они нужны: в свою комнату и свои исходящие. */
   async function loadRequests(me) {
     const version = ++inboxVersion.current;
@@ -188,27 +152,19 @@ export default function App() {
       setIncoming([]);
       setMyRequests([]);
       setMyInvites([]);
-      setBlockRequests([]);
-      setBlockCandidates([]);
       return;
     }
-    // Блоки касаются только тех, кто уже собрал комнату в отеле с блоками.
-    const withBlocks = Boolean(me.group_id) && campusHasBlocks(me.campus);
     try {
       const results = await Promise.allSettled([
         fetchMyRequests(me.id),
         me.group_id ? fetchGroupRequests(me.group_id) : Promise.resolve([]),
         fetchMyInvites(me.id),
-        withBlocks ? fetchBlockRequests(me.group_id) : Promise.resolve([]),
-        withBlocks ? fetchBlockCandidates(me.group_id) : Promise.resolve([]),
       ]);
       if (version !== inboxVersion.current) return;
-      const [mine, inbox, invites, blockReqs, cands] = results.map(result => result.status === "fulfilled" ? result.value : []);
+      const [mine, inbox, invites] = results.map(result => result.status === "fulfilled" ? result.value : []);
       setMyRequests(mine);
       setIncoming(inbox);
       setMyInvites(invites);
-      setBlockRequests(blockReqs);
-      setBlockCandidates(cands);
     } catch {
       // Заявки — не критично: лента должна работать и без них.
       setIncoming([]);
@@ -230,16 +186,6 @@ export default function App() {
       .then((cfg) => { setAccess(cfg); setIsAdmin(Boolean(cfg.is_admin)); })
       .catch(() => { setIsAdmin(false); setAccessFailed(true); });
   }, []);
-
-  // Each feed loads independently through useRemoteList; typing only requests people.
-
-  // А вот подсказка про идеальных соседей без анкеты бессмысленна — её и
-  // грузим тогда, когда стало известно, кто я. Отдельным запросом, поэтому
-  // ленту это уже не задерживает и дважды её не дёргает.
-  useEffect(() => {
-    if (loadingMe) return;
-    loadIdeal(myProfile?.id);
-  }, [loadingMe, myProfile?.id]);
 
   // Анкета — источник правды про кампус-отель: сменили его в анкете (или зашли с
   // другого устройства) — лента должна переехать следом.
@@ -285,12 +231,8 @@ export default function App() {
         if (target.campus !== campus) chooseCampus(target.campus);
         if (!gender) chooseGender(target.gender);
 
-        // В ленте «ищут соседей» только те, кто ещё не в комнате. Если человек
-        // уже собрался — искать его карточку там бесполезно, честнее сказать.
         if (target.group_id) {
-          setTargetError(
-            `${target.name} уже собрал(а) комнату — загляни во вкладку «Комнаты».`
-          );
+          setRoomTarget(target.group_id);
           setTab("groups");
           return;
         }
@@ -335,9 +277,37 @@ export default function App() {
     return () => clearTimeout(id);
   }, [highlightId, loading, profiles, visibleCount]);
 
+  useEffect(() => {
+    if (tab !== "groups" || roomTarget === null || roomFeed.loading || !roomFeed.loaded) return;
+    const node = document.getElementById(`room-${roomTarget}`);
+    if (node) {
+      node.scrollIntoView({ block: "start" });
+      node.focus({ preventScroll: true });
+    } else {
+      setError("Эта комната больше недоступна.");
+    }
+    setRoomTarget(null);
+  }, [tab, roomTarget, roomFeed.loading, roomFeed.loaded, groups]);
+
+  function switchFeed(nextTab) {
+    if (tab === nextTab) return;
+    setRoomTarget(null);
+    setError("");
+    setTab(nextTab);
+    window.scrollTo(0, 0);
+  }
+
+  function openRoom(id) {
+    setError("");
+    setRoomTarget(id);
+    setTab("groups");
+    void roomFeed.reload();
+  }
+
   function handleCreated(profile) {
     setModal(null);
     setFilters(EMPTY_FILTERS);
+    setMatchingOnly(false);
     remember(profile); // запоминаем как «мою анкету»
     setProfiles((prev) => [profile, ...prev]);
   }
@@ -351,36 +321,45 @@ export default function App() {
       chooseGender(profile.gender);
       return; // ленту перезапросит эффект на смену пола
     }
-    // Если анкета в ленте (без комнаты) — освежаем её на месте.
-    setProfiles((prev) => prev.map((p) => (p.id === profile.id ? profile : p)));
+    if (profile.campus === campus) {
+      void peopleFeed.reload();
+      if (profile.group_id) void roomFeed.reload();
+    }
   }
 
   async function handleDeleted() {
     setModal(null);
     forget();
-    await refresh();
+    setMatchingOnly(false);
+    await refresh(null);
   }
 
   useEffect(() => {
     loadRequests(myProfile);
   }, [myProfile]);
 
-  async function refresh() {
-    const updates = { singles: peopleFeed.reload(), groups: roomFeed.reload(), blocks: blockFeed.reload() };
+  async function refresh(profileFallback = myProfile) {
+    const updates = { singles: peopleFeed.reload(), groups: roomFeed.reload() };
     const me = await reloadMe();
-    void loadRequests(me || myProfile);
-    void loadIdeal((me || myProfile)?.id);
-    // Keep secondary refreshes in the background; the active tab remains usable.
-    await updates[tab];
+    await Promise.all([updates[tab], loadRequests(me || profileFallback)]);
   }
 
   async function withBusy(action) {
-    if (busyRef.current) return;
+    if (busyRef.current) return false;
     busyRef.current = true;
     setBusy(true); setError("");
-    try { await action(); await refresh(); }
-    catch (err) { setError(err.message); }
-    finally { busyRef.current = false; setBusy(false); }
+    try {
+      await action();
+      await refresh();
+      return true;
+    } catch (err) {
+      setError(err.message);
+      if (err.status === 409) await refresh();
+      return false;
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
   }
 
   const handleRequest = (groupId) =>
@@ -408,20 +387,6 @@ export default function App() {
 
   const handleRespondInvite = (inviteId, accept) =>
     withBusy(() => respondInvite(inviteId, myProfile.id, accept));
-
-  // Блоки: объединяются комнатами, поэтому решает не один человек — согласие
-  // должны дать все жильцы позванной комнаты.
-  const handleRequestBlock = (toGroupId) =>
-    withBusy(() => requestBlock(myProfile.id, toGroupId));
-
-  const handleVoteBlock = (requestId, approve) =>
-    withBusy(() => voteBlockRequest(requestId, myProfile.id, approve));
-
-  const handleCancelBlock = (requestId) =>
-    withBusy(() => cancelBlockRequest(requestId, myProfile.id));
-
-  const handleLeaveBlock = (blockId) =>
-    withBusy(() => leaveBlock(blockId, myProfile.id));
 
   // Модерация: убрать лишнюю анкету прямо из ленты. Кнопку видит только админ,
   // и право на это всё равно проверяет сервер по подписи Telegram.
@@ -463,29 +428,14 @@ export default function App() {
   );
   const canStartGroup = myProfile && !myProfile.group_id;
   const capacities = campusCapacities(campus);
-  const hasBlocks = campusHasBlocks(campus);
-  // Моя комната и мой блок — из уже загруженных лент, отдельный запрос не нужен.
-  const myGroup = myProfile?.group_id
-    ? groups.find((g) => g.id === myProfile.group_id)
-    : null;
-  const myBlock = myGroup?.block_id
-    ? blocks.find((b) => b.id === myGroup.block_id)
-    : null;
-  // Входящие предложения о блоке зовут не хуже приглашений — показываем счётчик.
-  const blockInbox = myGroup
-    ? blockRequests.filter((r) => r.to_group_id === myGroup.id).length
-    : 0;
-  // Пусто из-за фильтров или тут вообще никого нет — это разные сообщения.
-  const filtersActive = Object.values(filters).some((v) => v !== "") || idealOn;
-  // «Идеальные» пересекаем с лентой, а не заменяем её: обычные фильтры при
-  // этом продолжают работать.
-  const idealSet = new Set(idealIds);
-  const shownProfiles = idealOn
-    ? profiles.filter((p) => idealSet.has(p.id))
-    : profiles;
+  const fullMatches = profiles.filter(profile => matches.get(profile.id)?.percent === 100);
+  const filtersActive = Object.values(filters).some(value => value !== "") || matchingOnly;
+  const shownProfiles = matchingOnly ? fullMatches : profiles;
+  const profileOpen = modal === "create" || modal === "edit";
+  const profileAction = () => setModal(myProfile ? "edit" : "create");
 
   return (
-    <div className="app">
+    <div className={`app neighbor-app neighbor-app--${campus}`}>
       <header className="header">
         <div className="header__inner">
           <div className="header__brand"><Brand /><span className="header__subject">Соседи <small>{CAMPUS[campus]}</small></span></div>
@@ -537,7 +487,7 @@ export default function App() {
             {myProfile ? (
               <button
                 className="header__cta"
-                onClick={() => setModal("edit")}
+                onClick={profileAction}
               >
                 <span className="header__cta-full">Моя анкета</span>
                 <span className="header__cta-short">Анкета</span>
@@ -546,7 +496,7 @@ export default function App() {
             ) : (
               <button
                 className="header__cta"
-                onClick={() => setModal("create")}
+                onClick={profileAction}
               >
                 <span className="header__cta-full">Разместить анкету</span>
                 <span className="header__cta-short">+ Анкета</span>
@@ -558,16 +508,13 @@ export default function App() {
       </header>
 
       <main className="container">
-        <div className="hero">
-          <h1 className="hero__title">
-            Соседи, с которыми <span className="accent">по пути</span>
-          </h1>
-          <p className="hero__sub">
-            Кампус-отель «{CAMPUS[campus]}» · комнаты на{" "}
-            {campusRoomsText(campus)} человека · только{" "}
-            {GENDER_WORD[gender].toLowerCase()}
-          </p>
-        </div>
+        {tab === "singles" ? (
+          <div className="neighbors-hero">
+            <span className="neighbors-hero__graphic" aria-hidden="true" />
+            <p className="neighbors-hero__label"><span aria-hidden="true" />Кампус-отель</p>
+            <h1>Соседи<br /><em>{campus === "disk" ? "в Диске" : "в Облаке"}</em></h1>
+          </div>
+        ) : <h1 className="neighbors-heading">Комнаты</h1>}
 
         {/* Без анкеты человека не видно и он не может ничего сделать, а кнопку
             в шапке замечали не с первого раза — зовём крупно и по делу. */}
@@ -580,44 +527,23 @@ export default function App() {
                 познакомиться и собрать комнату вместе.
               </span>
             </div>
-            <button className="promo__btn" onClick={() => setModal("create")}>
+            <button className="promo__btn" onClick={profileAction}>
               Разместить анкету
             </button>
           </div>
         )}
 
-        <div className="tabs">
-          <button
-            aria-pressed={tab === "singles"}
-            className={`tabs__btn${tab === "singles" ? " tabs__btn--on" : ""}`}
-            onClick={() => setTab("singles")}
-          >
-            Ищут соседей
-            <span className="tabs__badge">{profiles.length}</span>
+        <nav className="neighbors-nav" aria-label="Разделы приложения">
+          <button type="button" aria-current={tab === "singles" && !profileOpen ? "page" : undefined} onClick={() => switchFeed("singles")}>
+            <span className="neighbors-nav__icon neighbors-nav__icon--people" aria-hidden="true" />Люди
           </button>
-          <button
-            aria-pressed={tab === "groups"}
-            className={`tabs__btn${tab === "groups" ? " tabs__btn--on" : ""}`}
-            onClick={() => setTab("groups")}
-          >
-            Комнаты
-            <span className="tabs__badge">{groups.length}</span>
+          <button type="button" aria-current={tab === "groups" && !profileOpen ? "page" : undefined} onClick={() => switchFeed("groups")}>
+            <span className="neighbors-nav__icon neighbors-nav__icon--rooms" aria-hidden="true" />Комнаты
           </button>
-          {/* Блоки бывают только в «Диске» — в «Облаке» вкладку не показываем. */}
-          {hasBlocks && (
-            <button
-              className={`tabs__btn${tab === "blocks" ? " tabs__btn--on" : ""}`}
-              onClick={() => setTab("blocks")}
-            >
-              Блок
-              {blockInbox > 0 && (
-                <span className="tabs__badge tabs__badge--alert">
-                  {blockInbox}
-                </span>
-              )}
-            </button>
-          )}
-        </div>
+          <button type="button" className="neighbors-nav__profile" aria-current={profileOpen ? "page" : undefined} onClick={profileAction} disabled={loadingMe}>
+            <span className="neighbors-nav__icon neighbors-nav__icon--profile" aria-hidden="true" />Анкета
+          </button>
+        </nav>
 
         {/* Пришли по ссылке из общей ленты, но показать анкету не вышло —
             объясняем почему, иначе ссылка выглядит просто сломанной. */}
@@ -670,11 +596,11 @@ export default function App() {
             onChange={setFilters}
             onReset={() => {
               setFilters(EMPTY_FILTERS);
-              setIdealOn(false);
+              setMatchingOnly(false);
             }}
-            idealCount={idealIds.length}
-            idealOn={idealOn}
-            onToggleIdeal={() => setIdealOn((v) => !v)}
+            idealCount={fullMatches.length}
+            idealOn={matchingOnly}
+            onToggleIdeal={() => setMatchingOnly(value => !value)}
           />
         )}
 
@@ -684,14 +610,7 @@ export default function App() {
 
         {!loading && (!error || activeFeed.loaded) && tab === "singles" && (
           <>
-            {/* Сколько анкет в ленте, написано на вкладке, а сколько из них
-                идеально подходят — на самой кнопке «идеального соседа».
-                Строкой ниже остаётся только то, чего нигде больше нет. */}
-            {openGroups.length > 0 && (
-              <p className="count">
-                Комнат с местами: <strong>{openGroups.length}</strong>
-              </p>
-            )}
+            <p className="count neighbors-result-count">Анкет в подборке: <strong>{shownProfiles.length}</strong></p>
             {shownProfiles.length === 0 ? (
               <p className="state">
                 {filtersActive
@@ -699,7 +618,7 @@ export default function App() {
                   : "Пока здесь пусто. Размести анкету первым — и тебя увидят."}
               </p>
             ) : (
-              <div className="grid">
+              <div className="grid grid--neighbors">
                 {shownProfiles.slice(0, visibleCount).map((p) => (
                   <RoommateCard
                     key={p.id}
@@ -709,7 +628,9 @@ export default function App() {
                     // Пришли по ссылке из общей ленты — подсвечиваем ту анкету,
                     // за которой человек сюда и шёл.
                     highlight={p.id === highlightId}
-                    ideal={idealSet.has(p.id)}
+                    match={matches.get(p.id)}
+                    onOpenRoom={openRoom}
+                    actionError={actionError}
                     invite={myInvites.find(
                       (i) =>
                         i.to_profile_id === p.id &&
@@ -725,22 +646,6 @@ export default function App() {
             )}
             {shownProfiles.length > visibleCount && <div className="feed-more"><p>Показано {Math.min(visibleCount, shownProfiles.length)} из {shownProfiles.length}</p><button type="button" onClick={() => setVisibleCount(count => count + 24)}>Показать ещё 24</button></div>}
           </>
-        )}
-
-        {!loading && (!error || activeFeed.loaded) && tab === "blocks" && (
-          <BlockPanel
-            campus={campus}
-            myProfile={myProfile}
-            myGroup={myGroup}
-            myBlock={myBlock}
-            candidates={blockCandidates}
-            requests={blockRequests}
-            onRequestBlock={handleRequestBlock}
-            onVoteBlock={handleVoteBlock}
-            onCancelBlock={handleCancelBlock}
-            onLeaveBlock={handleLeaveBlock}
-            busy={busy}
-          />
         )}
 
         {!loading && (!error || activeFeed.loaded) && tab === "groups" && (

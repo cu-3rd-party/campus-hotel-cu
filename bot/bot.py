@@ -183,12 +183,8 @@ def decision_tail(kind, data):
     status = data["status"]
     if kind == "invite":
         return f"Комната на {data['capacity']} создана. Можно знакомиться!" if status == "accepted" else "Приглашение отклонено."
-    if kind == "block":
-        if status == "approved": return "Блок собран — все согласились."
-        if status == "rejected": return "Объединение в блок отклонено."
-    else:
-        if status == "approved": return f"{h(data['who'])} принят(а) — все согласились."
-        if status == "rejected": return f"Заявка {h(data['who'])} отклонена."
+    if status == "approved": return f"{h(data['who'])} принят(а) — все согласились."
+    if status == "rejected": return f"Заявка {h(data['who'])} отклонена."
     return f"Твой голос учтён: {data['votes_done']} из {data['votes_needed']}. Ждём остальных."
 
 
@@ -215,7 +211,7 @@ async def apply_decision(call, kind):
         detail = data.get("detail", "Не получилось сохранить ответ. Открой /pending.")
         if not isinstance(detail, str): detail = "Не получилось сохранить ответ. Открой /pending."
         if call.message:
-            if response.status_code == 409:
+            if response.status_code in (409, 410):
                 try: await call.message.edit_reply_markup(reply_markup=None)
                 except TelegramBadRequest: pass
             await call.message.answer(h(detail))
@@ -234,7 +230,12 @@ async def on_invite(call: CallbackQuery):
 
 @dp.callback_query(F.data.startswith("block:"))
 async def on_block(call: CallbackQuery):
-    await apply_decision(call, "block")
+    await call.answer("Объединение комнат в блоки отключено.", show_alert=True)
+    if call.message:
+        try:
+            await call.message.edit_reply_markup(reply_markup=None)
+        except TelegramBadRequest:
+            pass
 
 
 @dp.callback_query(F.data.startswith("vote:"))

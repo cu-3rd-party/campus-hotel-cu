@@ -275,6 +275,17 @@ class SecurityTests(unittest.TestCase):
         from helpers import _msg
         self.assertIsNone(_msg(-100123,'private')['chat_id'])
 
+    def test_legacy_block_actions_cannot_create_or_complete_a_block(self):
+        old_actions = [
+            ('/api/blocks/requests', {'profile_id': 1, 'to_group_id': 1}, headers()),
+            ('/api/blocks/requests/1/vote', {'profile_id': 1, 'approve': True}, headers()),
+            ('/api/bot/block', {'telegram_id': 111, 'request_id': 1, 'approve': True},
+             {'X-Bot-Secret': 'fixture-secret'}),
+        ]
+        for path, body, auth in old_actions:
+            response = self.client.post(path, json=body, headers=auth)
+            self.assertEqual(response.status_code, 410, response.text)
+
     def test_spreadsheet_export_keeps_user_text_as_text_not_formulas(self):
         from openpyxl import load_workbook
         with self.Session() as db:

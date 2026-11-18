@@ -1,188 +1,133 @@
+import { useId, useRef, useState } from "react";
 import { profilePhoto, telegramLink } from "../links.mjs";
-import { useState } from "react";
-import { GENDER, TRACK, roomLabel } from "../labels.js";
+import { SLEEP, SMOKING, TRACK } from "../labels.js";
+import { useDialogFocus } from "../useDialogFocus.js";
+import { useModalLock } from "../useModalLock.js";
 import ProfileSpecs from "./ProfileSpecs.jsx";
 
-function initials(name) {
-  return name.trim().charAt(0).toUpperCase();
+function MatchBadge({ match }) {
+  if (!match) return null;
+  return match.percent === 100
+    ? <span className="card__ideal"><span aria-hidden="true">✓ </span>Совпадают привычки</span>
+    : <span className="card__match">{match.percent}% совпадения</span>;
 }
 
-export default function RoommateCard({
-  profile,
-  myProfile,
-  invite,
-  onInvite,
-  // Какие комнаты бывают в этом кампус-отеле — в «Облаке» на четверых не селят.
-  capacities = [2, 3, 4],
-  // Анкета, за которой пришли по ссылке из общей ленты: её подсвечиваем.
-  highlight = false,
-  // Совпали все мои параметры — помечаем, чтобы это было видно и в общей ленте.
-  ideal = false,
-  // Админ чистит ленту прямо на месте: лишнюю анкету он видит здесь, а не в
-  // списке модерации — незачем искать её там заново.
-  canModerate = false,
-  onAdminDelete,
-  busy,
-}) {
-  // Удаление необратимо — спрашиваем ещё раз, прямо в карточке.
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const {
-    name,
-    gender,
-    photo_url,
-    telegram,
-    track,
-    course,
-    bio,
-    room_capacities = [],
-    telegram_verified,
-  } = profile;
+function RoomStatus({ room }) {
+  return <span className="card__recruiting">
+    В комнате · свободно {room.spots_left} {room.spots_left === 1 ? "место" : "места"}
+  </span>;
+}
 
-  // Звать можно, только если у меня есть анкета, я свободен, он свободен и это
-  // не я сам. Приглашение уже отправлено — показываем статус вместо кнопок.
-  const canInvite =
-    myProfile &&
-    myProfile.id !== profile.id &&
-    // Парни живут с парнями, девушки — с девушками. Ленту чужого пола можно
-    // открыть, переключив выбор в шапке, поэтому кнопку прячем здесь же —
-    // сервер такую заявку всё равно отклонит.
-    myProfile.gender === profile.gender &&
-    !myProfile.group_id &&
-    !profile.group_id &&
-    !invite &&
-    typeof onInvite === "function";
-  // Человек назвал желаемые размеры — предлагаем только их (и только те, что
-  // бывают в этом кампус-отеле); не назвал — все возможные.
-  const wanted = room_capacities.filter((n) => capacities.includes(n));
-  const inviteSizes = wanted.length > 0 ? wanted : capacities;
+function ProfileDetails({ profile, match, myProfile, capacities, invite, busy, onInvite, onOpenRoom, canModerate, onAdminDelete, actionError, onClose }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const dialogRef = useRef(null);
+  const headingId = useId();
+  useModalLock();
+  useDialogFocus(dialogRef, onClose, deleting);
+  const contact = telegramLink(profile.telegram);
+  const canInvite = myProfile && myProfile.id !== profile.id
+    && myProfile.gender === profile.gender && myProfile.campus === profile.campus
+    && !myProfile.group_id && !profile.group_id && !invite;
+  const wanted = profile.room_capacities.filter(size => capacities.includes(size));
+  const inviteSizes = wanted.length ? wanted : capacities;
+  const openRoom = profile.open_room;
 
   return (
-    <article
-      id={`profile-${profile.id}`}
-      className={`card${highlight ? " card--highlight" : ""}`}
-    >
-      {/* Шапка: квадратное фото и то, кто это. Дальше — всё на всю ширину,
-          иначе на телефоне детали ютились бы в узкой колонке справа. */}
-      <div className="card__top">
-        <div className="card__photo">
-          {profilePhoto(photo_url) ? (
-            <img src={profilePhoto(photo_url)} referrerPolicy="no-referrer" alt={name} loading="lazy" decoding="async" width="96" height="96" />
-          ) : (
-            <div className="card__placeholder">{initials(name)}</div>
-          )}
+    <div className="modal__overlay roommate-dialog" onClick={event => {
+      if (event.target === event.currentTarget && !deleting) onClose();
+    }}>
+      <div className="modal" ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={headingId} tabIndex={-1}>
+        <div className="modal__head">
+          <h2 id={headingId}>{profile.name}</h2>
+          <button type="button" className="modal__close" aria-label="Закрыть анкету" onClick={onClose} disabled={deleting}>×</button>
         </div>
-
-        <div className="card__head">
-          <h3 className="card__name">
-            {name}
-            {telegram_verified && (
-              <span
-                className="card__verified"
-                title="Профиль подтверждён через Telegram"
-              >
-                ✓
-              </span>
-            )}
-            <span className="card__gender">{GENDER[gender]}</span>
-          </h3>
-
-          {ideal && (
-            <span className="card__ideal" title="Совпали все твои параметры">
-              Совпадают привычки
-            </span>
+        <div className="modal__form roommate-dialog__content">
+          {TRACK[profile.track] && <p className="card__faculty">{TRACK[profile.track]}</p>}
+          {openRoom && <RoomStatus room={openRoom} />}
+          {profile.bio && <p className="card__bio">{profile.bio}</p>}
+          {match && (
+            <div className="roommate-dialog__match">
+              <strong>Совпало {match.matched} из {match.fields.size}</strong>
+              <p>Сравниваем привычки, указанные в обеих анкетах.</p>
+            </div>
           )}
-
-          {/* Ничего не выбрано — строку не рисуем, иначе остаётся пустой отступ. */}
-          {(TRACK[track] || course) && (
-            <p className="card__faculty">
-              {[TRACK[track], course ? `${course} курс` : null]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
+          <ProfileSpecs profile={profile} match={match} />
+          {openRoom && <button type="button" className="card__room-action" onClick={() => {
+            onClose();
+            onOpenRoom(profile.group_id);
+          }}>Посмотреть комнату</button>}
+          {canInvite && (
+            <div className="card__invite">
+              <span className="card__invite-label">Позвать жить вместе:</span>
+              <div className="card__invite-btns">
+                {inviteSizes.map(size => (
+                  <button type="button" key={size} className="card__invite-btn"
+                    onClick={() => onInvite(profile.id, size)} disabled={busy}>на {size}</button>
+                ))}
+              </div>
+            </div>
           )}
-
-          <span className="card__room">{roomLabel(room_capacities)}</span>
+          {actionError && <p className="modal__error" role="alert">{actionError}</p>}
+          {invite && <p className="card__invite-sent">Приглашение в комнату на {invite.capacity} отправлено</p>}
+          {contact
+            ? <a className="card__tg" href={contact} target="_blank" rel="noopener noreferrer">Написать в Telegram ↗</a>
+            : <p className="card__faculty">Контакт в Telegram не указан</p>}
+          {canModerate && (
+            <div className="card__mod">
+              {confirmDelete ? (
+                <>
+                  <span className="card__mod-ask">Удалить анкету?</span>
+                  <button type="button" className="card__mod-keep" onClick={() => setConfirmDelete(false)} disabled={deleting}>Оставить</button>
+                  <button type="button" className="card__mod-del" disabled={busy || deleting} onClick={async () => {
+                    setDeleting(true);
+                    const deleted = await onAdminDelete(profile.id);
+                    if (deleted) onClose();
+                    else setDeleting(false);
+                  }}>Удалить</button>
+                </>
+              ) : (
+                <button type="button" className="card__mod-del" onClick={() => setConfirmDelete(true)} disabled={busy}>Удалить анкету</button>
+              )}
+            </div>
+          )}
         </div>
       </div>
+    </div>
+  );
+}
 
-      {bio && <p className="card__bio">{bio}</p>}
+export default function RoommateCard({ profile, match, highlight, onOpenRoom, ...details }) {
+  const [expanded, setExpanded] = useState(false);
+  const copyId = useId();
+  const photo = profilePhoto(profile.photo_url);
+  const room = profile.open_room;
+  const sizes = room ? [room.capacity] : profile.room_capacities;
+  const summary = [sizes.length ? `На ${sizes.join(" или ")}` : null, SLEEP[profile.sleep_schedule], SMOKING[profile.smoking]]
+    .filter(Boolean).join(" · ");
+  const fullMatch = match?.percent === 100;
 
-      <ProfileSpecs profile={profile} />
-
-      {/* Позвать жить вместе прямо отсюда, не уходя во вкладку «Компании».
-          Размер комнаты берём из предпочтения человека; не выбрал — даём все. */}
-      {canInvite && (
-        <div className="card__invite">
-          <span className="card__invite-label">Позвать жить вместе:</span>
-          <div className="card__invite-btns">
-            {inviteSizes.map((n) => (
-              <button
-                key={n}
-                className="card__invite-btn"
-                onClick={() => onInvite(profile.id, n)}
-                disabled={busy}
-              >
-                на {n}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {invite && (
-        <p className="card__invite-sent">
-          ⏳ Приглашение на {invite.capacity} отправлено — ждём ответа в Telegram
-        </p>
-      )}
-
-      <a
-        className="card__tg"
-        href={telegramLink(telegram)} aria-disabled={!telegramLink(telegram)}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-          <path
-            fill="currentColor"
-            d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"
-          />
-        </svg>
-        {telegramLink(telegram) ? "Написать в Telegram" : "Контакт не указан"}
-      </a>
-
-      {/* Кнопка модерации — последней и неяркой: она нужна редко, а место
-          карточки принадлежит человеку, а не админу. */}
-      {canModerate && typeof onAdminDelete === "function" && (
-        <div className="card__mod">
-          {confirmDelete ? (
-            <>
-              <span className="card__mod-ask">Удалить анкету?</span>
-              <button
-                className="card__mod-keep"
-                onClick={() => setConfirmDelete(false)}
-                disabled={busy}
-              >
-                Оставить
-              </button>
-              <button
-                className="card__mod-del"
-                onClick={() => onAdminDelete(profile.id)}
-                disabled={busy}
-              >
-                Точно
-              </button>
-            </>
-          ) : (
-            <button
-              className="card__mod-del"
-              onClick={() => setConfirmDelete(true)}
-              disabled={busy}
-            >
-              🗑 Удалить (админ)
-            </button>
-          )}
-        </div>
-      )}
+  return (
+    <article id={`profile-${profile.id}`} className={`card roommate-card${highlight ? " card--highlight" : ""}${fullMatch ? " roommate-card--match" : ""}`}>
+      <button type="button" className="roommate-card__preview" aria-haspopup="dialog" aria-label={`Открыть анкету: ${profile.name}`} aria-describedby={copyId} onClick={() => setExpanded(true)}>
+        <span className="card__photo" aria-hidden="true">
+          {photo
+            ? <img src={photo} referrerPolicy="no-referrer" alt="" loading="lazy" decoding="async" width="96" height="96" />
+            : <span className="card__placeholder">{profile.name.trim().charAt(0).toUpperCase()}</span>}
+        </span>
+        <span className="roommate-card__copy" id={copyId}>
+          <span className="roommate-card__top">
+            <span className="card__name">{profile.name}{profile.telegram_verified && <span className="card__verified" title="Подтверждено через Telegram">✓</span>}</span>
+            <span className="roommate-card__chevron" aria-hidden="true">›</span>
+          </span>
+          {summary && <span className="roommate-card__summary">{summary}</span>}
+          {room && <RoomStatus room={room} />}
+          {profile.bio && <span className="card__bio">{profile.bio}</span>}
+          <MatchBadge match={match} />
+        </span>
+      </button>
+      {room && <button type="button" className="card__room-action" onClick={() => onOpenRoom(profile.group_id)}>Посмотреть комнату</button>}
+      {expanded && <ProfileDetails {...details} profile={profile} match={match} onOpenRoom={onOpenRoom} onClose={() => setExpanded(false)} />}
     </article>
   );
 }
