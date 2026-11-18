@@ -22,3 +22,9 @@ export function compareHabits(me, person) {
     percent: Math.round(matched * 100 / fields.size),
   } : null;
 }
+
+export function sortProfilesByMatch(profiles, matches) {
+  const score = (profile) => matches.get(profile.id)?.percent ?? -1;
+  // Stable sort keeps the feed's newest-first order for ties and unrated profiles.
+  return [...profiles].sort((a, b) => score(b) - score(a));
+}
