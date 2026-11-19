@@ -291,6 +291,13 @@ def ensure_columns() -> None:
                 )
             )
 
+        needs_activity_backfill = conn.execute(text("""
+            INSERT INTO schema_meta (key) VALUES ('restore_disk_profile_activity')
+            ON CONFLICT (key) DO NOTHING RETURNING key
+        """)).scalar_one_or_none()
+        if needs_activity_backfill:
+            profile_review.migrate_legacy_activity(conn)
+
 
 @app.on_event("startup")
 def on_startup():
