@@ -43,9 +43,18 @@ async def send_message(
     Уведомление — не критичная часть: если бот не настроен или человек не нажал
     /start, действие на сайте всё равно должно пройти.
     """
-    if not TELEGRAM_BOT_TOKEN or not chat_id:
+    resp = await _post_message(chat_id, text, reply_markup, message_thread_id)
+    if resp is None:
         return False
+    if resp.status_code != 200:
+        log.warning("Telegram не принял сообщение: HTTP %s", resp.status_code)
+        return False
+    return True
 
+
+async def _post_message(chat_id, text, reply_markup=None, message_thread_id=None):
+    if not TELEGRAM_BOT_TOKEN or not chat_id:
+        return None
     payload = {
         "chat_id": chat_id,
         "text": text,
@@ -61,18 +70,44 @@ async def send_message(
 
     try:
         async with httpx.AsyncClient(timeout=10, proxy=TELEGRAM_PROXY_URL) as client:
-            resp = await client.post(
+            return await client.post(
                 API.format(token=TELEGRAM_BOT_TOKEN, method="sendMessage"),
                 json=payload,
             )
-        if resp.status_code != 200:
-            # Частый случай: человек не начал диалог с ботом (403).
-            log.warning("Telegram не принял сообщение: HTTP %s", resp.status_code)
-            return False
-        return True
     except httpx.HTTPError as exc:
         log.warning("Не смог отправить в Telegram: %s", type(exc).__name__)
-        return False
+        return None
+
+
+async def send_profile_review(telegram_id: int, token: str) -> tuple[str, int]:
+    response = await _post_message(
+        telegram_id,
+        "Ты всё ещё планируешь жить в Диске и ищешь соседей?\n\n"
+        "Нажми подходящую кнопку. Если не ответишь в течение 48 часов, "
+        "мы удалим анкету из поиска.",
+        {"inline_keyboard": [
+            [{"text": "Да, ещё ищу", "callback_data": f"review:{token}:keep"}],
+            [{"text": "Не буду жить в Диске", "callback_data": f"review:{token}:leaving"}],
+            [{"text": "Больше не ищу", "callback_data": f"review:{token}:done"}],
+        ]},
+    )
+    if response is None:
+        return "failed", 0
+    try:
+        result = response.json()
+    except ValueError:
+        result = {}
+    if not isinstance(result, dict):
+        result = {}
+    if response.status_code == 200 and result.get("ok") is True:
+        return "sent", 0
+    if response.status_code == 403 and result.get("description") == "Forbidden: bot was blocked by the user":
+        return "blocked", 0
+    if response.status_code == 429:
+        parameters = result.get("parameters")
+        retry_after = parameters.get("retry_after") if isinstance(parameters, dict) else None
+        return "failed", max(1, retry_after) if isinstance(retry_after, int) else 60
+    return "failed", 0
 
 
 class DocumentError(Exception):

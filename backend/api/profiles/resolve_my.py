@@ -1,10 +1,12 @@
+from datetime import datetime
+
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
-import schemas, telegram_auth
+import profile_review, schemas, telegram_auth
 from api.profiles import router
 from database import get_db
-from helpers import _find_profile_by_telegram
+from models import Profile
 
 
 @router.post("/api/profiles/me", response_model=schemas.ProfileOut)
@@ -22,7 +24,7 @@ def resolve_my_profile(
     except telegram_auth.TelegramAuthError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
 
-    profile = _find_profile_by_telegram(db, int(user["id"]), user.get("username"))
+    profile = db.query(Profile).filter(Profile.telegram_id == int(user["id"])).with_for_update().first()
     if not profile:
         raise HTTPException(status_code=404, detail="Анкета не найдена")
 
@@ -31,7 +33,8 @@ def resolve_my_profile(
     if profile.telegram != username or not profile.telegram_verified:
         profile.telegram = username
         profile.telegram_verified = True
-        db.commit()
-        db.refresh(profile)
+    profile_review.record_activity(profile, datetime.utcnow())
+    db.commit()
+    db.refresh(profile)
 
     return profile
