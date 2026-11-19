@@ -48,6 +48,7 @@ def list_ideal_profiles(
             models.Profile.gender == me.gender,
             models.Profile.campus == me.campus,
             models.Profile.group_id.is_(None),
+            models.Profile.review_sent_at.is_(None),
         )
         .order_by(models.Profile.created_at.desc())
         .all()

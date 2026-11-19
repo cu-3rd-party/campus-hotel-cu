@@ -40,7 +40,7 @@ def list_profiles(
     ),
     recruiting: bool = Query(False, description="Люди без комнаты и участники комнат со свободными местами"),
 ):
-    query = db.query(models.Profile)
+    query = db.query(models.Profile).filter(models.Profile.review_sent_at.is_(None))
     room = models.Group
     if recruiting:
         occupancy = (

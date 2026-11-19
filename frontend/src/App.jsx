@@ -233,7 +233,7 @@ export default function App() {
         setLinkedProfile(target);
       })
       .catch(() => {
-        if (!cancelled) setTargetError("Анкету не нашли — её могли удалить.");
+        if (!cancelled) setTargetError("Анкета сейчас недоступна.");
       });
 
     return () => {
