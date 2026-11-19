@@ -17,7 +17,7 @@ import {
   requestJoin,
   voteRequest,
 } from "./api.js";
-import RoommateCard from "./components/RoommateCard.jsx";
+import RoommateCard, { ProfileDetails } from "./components/RoommateCard.jsx";
 import GroupCard from "./components/GroupCard.jsx";
 import Filters from "./components/Filters.jsx";
 import AddProfileModal from "./components/AddProfileModal.jsx";
@@ -98,14 +98,9 @@ export default function App() {
 
   const [matchingOnly, setMatchingOnly] = useState(false);
 
-  // Анкета из ссылки в общей ленте: на неё надо прокрутить и подсветить её.
-  // Читаем один раз при запуске — дальше это уже история, а не команда.
   const [targetId] = useState(startProfileId);
   const [targetError, setTargetError] = useState("");
-  const [highlightId, setHighlightId] = useState(null);
-  // Прокручиваем ровно один раз: иначе любое обновление ленты дёргало бы
-  // человека обратно к чужой анкете.
-  const scrolledTo = useRef(null);
+  const [linkedProfile, setLinkedProfile] = useState(null);
 
   const { myProfile, loadingMe, remember, forget, reloadMe } = useMyProfile({ allowLocalFallback: Boolean(access?.development_mode) });
   const searchFilters = useDebouncedValue(filters);
@@ -235,13 +230,7 @@ export default function App() {
         if (target.campus !== campus) chooseCampus(target.campus);
         if (!gender) chooseGender(target.gender);
 
-        if (target.group_id) {
-          setRoomTarget(target.group_id);
-          setTab("groups");
-          return;
-        }
-        setTab("singles");
-        setHighlightId(target.id);
+        setLinkedProfile(target);
       })
       .catch(() => {
         if (!cancelled) setTargetError("Анкету не нашли — её могли удалить.");
@@ -254,32 +243,6 @@ export default function App() {
     // принято и повторять его не нужно.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetId, loadingMe, identityAvailable]);
-
-  useEffect(() => {
-    const index = shownProfiles.findIndex(profile => profile.id === highlightId);
-    if (index >= visibleCount) setVisibleCount(Math.ceil((index + 1) / 24) * 24);
-  }, [highlightId, shownProfiles, visibleCount]);
-
-  // Анкета доехала до ленты — прокручиваем к ней и снимаем подсветку.
-  useEffect(() => {
-    if (!highlightId || loading) return;
-    if (scrolledTo.current === highlightId) return;
-    const node = document.getElementById(`profile-${highlightId}`);
-    if (!node) return;
-    scrolledTo.current = highlightId;
-    // Считаем позицию сами и прокручиваем двухаргументным scrollTo. Так же,
-    // как в useModalLock, обходим { behavior: "instant" }: в Safari оно
-    // появилось только к 15.4, а собираемся мы под Safari 14.
-    // Прокрутка нужна именно мгновенная: плавную браузер не проигрывает, пока
-    // вкладка не на виду, — а мини-апп по ссылке как раз стартует в фоне, и
-    // человек оказывался в начале ленты.
-    const rect = node.getBoundingClientRect();
-    const center = rect.top + window.scrollY - (window.innerHeight - rect.height) / 2;
-    window.scrollTo(0, Math.max(0, center));
-    // Подсветка — подсказка «вот она», а не постоянное состояние карточки.
-    const id = setTimeout(() => setHighlightId(null), 2600);
-    return () => clearTimeout(id);
-  }, [highlightId, loading, shownProfiles, visibleCount]);
 
   useEffect(() => {
     if (tab !== "groups" || roomTarget === null || roomFeed.loading || !roomFeed.loaded) return;
@@ -432,6 +395,19 @@ export default function App() {
   );
   const canStartGroup = myProfile && !myProfile.group_id;
   const capacities = campusCapacities(campus);
+  const profileDetailsProps = {
+    myProfile,
+    capacities,
+    onOpenRoom: openRoom,
+    actionError,
+    onInvite: handleInvite,
+    canModerate: isAdmin,
+    onAdminDelete: handleAdminDelete,
+    busy,
+  };
+  const inviteForProfile = (profileId) => myInvites.find(
+    (invite) => invite.to_profile_id === profileId && invite.from_profile_id === myProfile?.id
+  );
   const filtersActive = Object.values(filters).some(value => value !== "") || matchingOnly;
   const profileOpen = modal === "create" || modal === "edit";
   const profileAction = () => setModal(myProfile ? "edit" : "create");
@@ -623,25 +599,11 @@ export default function App() {
               <div className="grid grid--neighbors">
                 {shownProfiles.slice(0, visibleCount).map((p) => (
                   <RoommateCard
+                    {...profileDetailsProps}
                     key={p.id}
                     profile={p}
-                    myProfile={myProfile}
-                    capacities={capacities}
-                    // Пришли по ссылке из общей ленты — подсвечиваем ту анкету,
-                    // за которой человек сюда и шёл.
-                    highlight={p.id === highlightId}
                     match={matches.get(p.id)}
-                    onOpenRoom={openRoom}
-                    actionError={actionError}
-                    invite={myInvites.find(
-                      (i) =>
-                        i.to_profile_id === p.id &&
-                        i.from_profile_id === myProfile?.id
-                    )}
-                    onInvite={handleInvite}
-                    canModerate={isAdmin}
-                    onAdminDelete={handleAdminDelete}
-                    busy={busy}
+                    invite={inviteForProfile(p.id)}
                   />
                 ))}
               </div>
@@ -762,6 +724,16 @@ export default function App() {
         <span>Кампус-отели Диск и Облако · сервис поиска соседей по комнате</span>
         <a className="footer__projects" href="https://cu.vubni.ru/" target="_blank" rel="noopener noreferrer">Все проекты · Рядом ↗</a>
       </footer>
+
+      {linkedProfile && (
+        <ProfileDetails
+          {...profileDetailsProps}
+          profile={profiles.find((profile) => profile.id === linkedProfile.id) ?? linkedProfile}
+          match={compareHabits(myProfile, linkedProfile)}
+          invite={inviteForProfile(linkedProfile.id)}
+          onClose={() => setLinkedProfile(null)}
+        />
+      )}
 
       {modal === "admin" && (
         <AdminPanel onClose={() => setModal(null)} onChanged={refresh} />

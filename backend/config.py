@@ -66,10 +66,10 @@ FEED_THREAD_ID = int(_feed_thread) if _feed_thread.isdigit() else None
 
 
 def profile_link(profile_id: int) -> str:
-    """Открывает анкету в мини-аппе через нативную ссылку Telegram."""
-    if TELEGRAM_BOT_USERNAME:
-        app = f"&appname={TELEGRAM_MINIAPP_SHORT_NAME}" if TELEGRAM_MINIAPP_SHORT_NAME else ""
-        return f"tg://resolve?domain={TELEGRAM_BOT_USERNAME}{app}&startapp=p{profile_id}"
+    """Возвращает прямую ссылку на анкету в мини-приложении."""
+    app_url = miniapp_url()
+    if app_url:
+        return f"{app_url}=p{profile_id}"
     return f"{SITE_URL}/?profile={profile_id}"
 
 

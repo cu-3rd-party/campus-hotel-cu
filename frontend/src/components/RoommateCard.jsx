@@ -18,7 +18,7 @@ function RoomStatus({ room }) {
   </span>;
 }
 
-function ProfileDetails({ profile, match, myProfile, capacities, invite, busy, onInvite, onOpenRoom, canModerate, onAdminDelete, actionError, onClose }) {
+export function ProfileDetails({ profile, match, myProfile, capacities, invite, busy, onInvite, onOpenRoom, canModerate, onAdminDelete, actionError, onClose }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const dialogRef = useRef(null);
@@ -53,7 +53,7 @@ function ProfileDetails({ profile, match, myProfile, capacities, invite, busy, o
             </div>
           )}
           <ProfileSpecs profile={profile} match={match} />
-          {openRoom && <button type="button" className="card__room-action" onClick={() => {
+          {profile.group_id && <button type="button" className="card__room-action" onClick={() => {
             onClose();
             onOpenRoom(profile.group_id);
           }}>Посмотреть комнату</button>}
@@ -97,7 +97,7 @@ function ProfileDetails({ profile, match, myProfile, capacities, invite, busy, o
   );
 }
 
-export default function RoommateCard({ profile, match, highlight, onOpenRoom, ...details }) {
+export default function RoommateCard({ profile, match, onOpenRoom, ...details }) {
   const [expanded, setExpanded] = useState(false);
   const copyId = useId();
   const photo = profilePhoto(profile.photo_url);
@@ -108,7 +108,7 @@ export default function RoommateCard({ profile, match, highlight, onOpenRoom, ..
   const fullMatch = match?.percent === 100;
 
   return (
-    <article id={`profile-${profile.id}`} className={`card roommate-card${highlight ? " card--highlight" : ""}${fullMatch ? " roommate-card--match" : ""}`}>
+    <article id={`profile-${profile.id}`} className={`card roommate-card${fullMatch ? " roommate-card--match" : ""}`}>
       <button type="button" className="roommate-card__preview" aria-haspopup="dialog" aria-label={`Открыть анкету: ${profile.name}`} aria-describedby={copyId} onClick={() => setExpanded(true)}>
         <span className="card__photo" aria-hidden="true">
           {photo

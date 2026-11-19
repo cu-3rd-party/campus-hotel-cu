@@ -110,15 +110,6 @@ async def send_document(
         raise DocumentError("Telegram не принял файл, попробуй ещё раз")
 
 
-def open_profile_keyboard(url: str) -> dict:
-    """Кнопка «открыть анкету» под сообщением в общей ленте.
-
-    Именно url, а не web_app: web_app-кнопки Telegram разрешает только в
-    личке, в группе такая клавиатура не отправится вовсе.
-    """
-    return {"inline_keyboard": [[{"text": "👀 Открыть анкету", "url": url}]]}
-
-
 def invite_keyboard(invite_id: int) -> dict:
     """Кнопки под приглашением «давай жить вместе»."""
     return {
