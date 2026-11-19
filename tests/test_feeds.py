@@ -19,7 +19,7 @@ from models import Block, Group, Profile
 
 
 class FeedNotificationTests(unittest.TestCase):
-    def test_notification_exposes_the_direct_mini_app_link(self):
+    def test_notification_puts_the_profile_link_only_in_the_button(self):
         profile = Profile(id=42, name='Fixture', gender='male', campus='disk')
         cases = [
             ('FixtureBot', '', 'https://t.me/FixtureBot?startapp=p42'),
@@ -36,8 +36,11 @@ class FeedNotificationTests(unittest.TestCase):
                 SITE_URL='https://fixture.invalid',
             ):
                 message, = _feed_msgs(profile)
-                self.assertTrue(message['text'].endswith(f'Открыть анкету\n{url}'))
-                self.assertNotIn('reply_markup', message)
+                self.assertNotIn(url, message['text'])
+                self.assertNotIn('Открыть анкету', message['text'])
+                self.assertEqual(message['reply_markup'], {
+                    'inline_keyboard': [[{'text': '👀 Открыть анкету', 'url': url}]],
+                })
 
 
 class FeedTests(unittest.TestCase):

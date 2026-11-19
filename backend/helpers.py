@@ -172,14 +172,19 @@ def _feed_msgs(profile: models.Profile) -> List[dict]:
         f"{FEED_GENDER.get(profile.gender, '👤 Не указан')}\n"
         f"🏠 Кампус-отель «{campuses.label(profile.campus)}»\n\n"
         "<i>Лента разделена по полу: девушки видят только анкеты девушек, "
-        "парни — только анкеты парней. Открыть чужую половину не получится.</i>\n\n"
-        f"👀 Открыть анкету\n{escape(config.profile_link(profile.id))}"
+        "парни — только анкеты парней. Открыть чужую половину не получится.</i>"
     )
     return [
         {
             "chat_id": config.FEED_CHAT_ID,
             "message_thread_id": config.FEED_THREAD_ID,
             "text": text,
+            "reply_markup": {
+                "inline_keyboard": [[{
+                    "text": "👀 Открыть анкету",
+                    "url": config.profile_link(profile.id),
+                }]],
+            },
         }
     ]
 
