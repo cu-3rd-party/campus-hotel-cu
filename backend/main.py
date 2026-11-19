@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from fastapi import (
@@ -7,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
-import campuses, config, storage
+import campuses, config, profile_review, storage
 from api import router as api_router
 from database import Base, engine, wait_for_db
 from security import RequestBounds
@@ -54,6 +55,15 @@ def ensure_columns() -> None:
                 "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS telegram_chat_id BIGINT"
             )
         )
+        # Для существующих анкет отсчёт начинается с появления учёта активности.
+        conn.execute(text("""
+            ALTER TABLE profiles
+                ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMP NOT NULL
+                    DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'UTC'),
+                ADD COLUMN IF NOT EXISTS review_attempted_at TIMESTAMP,
+                ADD COLUMN IF NOT EXISTS review_sent_at TIMESTAMP,
+                ADD COLUMN IF NOT EXISTS review_token VARCHAR(24)
+        """))
 
         # Кампус-отель. Появился, когда сервис стал обслуживать два отеля.
         # DEFAULT 'disk' переселяет туда всех, кто зарегистрировался раньше:
@@ -304,3 +314,17 @@ def on_startup():
         )
     else:
         log.warning("Лента новых анкет выключена: нет TELEGRAM_FEED_CHAT_ID")
+
+
+@app.on_event("startup")
+async def start_profile_review():
+    if profile_review.enabled():
+        app.state.profile_review_task = asyncio.create_task(profile_review.run())
+
+
+@app.on_event("shutdown")
+async def stop_profile_review():
+    task = getattr(app.state, "profile_review_task", None)
+    if task is not None:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)

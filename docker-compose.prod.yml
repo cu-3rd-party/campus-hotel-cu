@@ -56,6 +56,7 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?задай TELEGRAM_BOT_TOKEN в .env}
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:?задай TELEGRAM_BOT_USERNAME в .env}
       BOT_SECRET: ${BOT_SECRET:?задай BOT_SECRET в .env}
+      DISK_PROFILE_REVIEW_ENABLED: ${DISK_PROFILE_REVIEW_ENABLED:-0}
       # Собирается из DOMAIN, чтобы адрес был задан ровно в одном месте.
       SITE_URL: https://${DOMAIN:?задай DOMAIN в .env}
       # Прокси до Telegram (уведомления, аватарки). Пусто — напрямую.

@@ -22,7 +22,7 @@ from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode
 from aiogram.filters import Command
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.types import CallbackQuery, Message, BotCommand
+from aiogram.types import CallbackQuery, ChatMemberUpdated, Message, BotCommand
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("bot")
@@ -241,6 +241,68 @@ async def on_block(call: CallbackQuery):
 @dp.callback_query(F.data.startswith("vote:"))
 async def on_vote(call: CallbackQuery):
     await apply_decision(call, "vote")
+
+
+async def record_activity(telegram_id: int, *, blocked: bool = False):
+    try:
+        async with api_client() as client:
+            response = await client.post(
+                "/api/bot/activity", json={"telegram_id": telegram_id, "blocked": blocked}, timeout=2,
+            )
+        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        log.warning("Не удалось записать активность в боте: %s", type(exc).__name__)
+
+
+async def track_private_activity(handler, event, data):
+    message = event if isinstance(event, Message) else event.message
+    user = event.from_user
+    review_answer = isinstance(event, CallbackQuery) and (event.data or "").startswith("review:")
+    if user and message and message.chat.type == "private" and message.chat.id == user.id and not review_answer:
+        await record_activity(user.id)
+    return await handler(event, data)
+
+
+dp.message.outer_middleware(track_private_activity)
+dp.callback_query.outer_middleware(track_private_activity)
+
+
+@dp.my_chat_member(F.chat.type == "private", F.new_chat_member.status == "kicked")
+async def on_bot_blocked(update: ChatMemberUpdated):
+    if update.chat.id == update.from_user.id:
+        await record_activity(update.chat.id, blocked=True)
+
+
+@dp.callback_query(F.data.startswith("review:"))
+async def on_profile_review(call: CallbackQuery):
+    match = re.fullmatch(r"review:([A-Za-z0-9_-]{24}):(keep|leaving|done)", call.data or "")
+    message = call.message
+    if not match or not isinstance(message, Message) or message.chat.type != "private" or message.chat.id != call.from_user.id:
+        await call.answer("Эта кнопка недоступна.", show_alert=True)
+        return
+    await call.answer("Сохраняем ответ…")
+    token, answer = match.groups()
+    try:
+        async with api_client() as client:
+            response = await client.post(
+                "/api/bot/activity-review",
+                json={"telegram_id": call.from_user.id, "token": token, "answer": answer},
+            )
+        if response.status_code == 410:
+            text = "Этот вопрос уже не актуален."
+        else:
+            response.raise_for_status()
+            text = {
+                "kept": "Спасибо! Твоя анкета остаётся в поиске.",
+                "deleted": "Твоя анкета удалена. Если снова понадобятся соседи, создай новую в приложении.",
+            }[response.json()["status"]]
+    except (httpx.HTTPError, KeyError, ValueError):
+        await message.answer("Не удалось подтвердить сохранение ответа. Нажми кнопку ещё раз.")
+        return
+    try:
+        await message.edit_text(text, reply_markup=None)
+    except TelegramBadRequest:
+        await message.answer(text)
 
 
 async def main():

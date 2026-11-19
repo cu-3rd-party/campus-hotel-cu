@@ -1,9 +1,10 @@
+from datetime import datetime
 from typing import Optional, List
 
 from fastapi import BackgroundTasks, Depends
 from sqlalchemy.orm import Session
 
-import schemas, models, notifier
+import schemas, models, notifier, profile_review
 from api.profiles import router
 from database import get_db
 from helpers import current_profile, _assert_is_me, _get_profile_or_404, _remove_from_group, _close_pending, \
@@ -37,6 +38,7 @@ def update_profile(
     if user is not None:
         data["telegram"] = user.get("username") or ""
         profile.telegram_verified = True
+        profile_review.record_activity(profile, datetime.utcnow())
     elif profile.telegram_verified:
         data.pop("telegram", None)
     else:
@@ -44,6 +46,7 @@ def update_profile(
 
     msgs: List[dict] = []
     if data["campus"] != profile.campus:
+        profile_review.clear_review(profile)
         msgs = _remove_from_group(
             db, profile, note="переехал(а) в другой кампус-отель и вышел(а) из комнаты"
         )

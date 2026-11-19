@@ -97,6 +97,10 @@ class Profile(Base):
     telegram_verified = Column(Boolean, nullable=False, default=False)
     # Появляется после /start у бота — только тогда можно слать уведомления.
     telegram_chat_id = Column(BigInteger, nullable=True)
+    last_activity_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    review_attempted_at = Column(DateTime, nullable=True)
+    review_sent_at = Column(DateTime, nullable=True)
+    review_token = Column(String(24), nullable=True)
 
     # Пусто — человек ищет соседей сам по себе; заполнено — уже в комнате.
     group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
