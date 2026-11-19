@@ -22,7 +22,7 @@ import profile_review as review
 import telegram_auth
 from database import Base, get_db
 from main import app
-from models import Group, Profile
+from models import Group, GroupInvite, JoinRequest, JoinRequestVote, Profile
 
 
 class ReviewTests(unittest.TestCase):
@@ -67,6 +67,39 @@ class ReviewTests(unittest.TestCase):
     def claim(self):
         with self.Session.begin() as db:
             return review.claim_review(db, self.now)
+
+    def test_legacy_backfill_uses_owner_actions_and_preserves_real_activity(self):
+        initial = self.now - timedelta(days=1)
+        old = self.now - timedelta(days=60)
+        recent = self.now - timedelta(days=7)
+        idle = self.add_profile(101, created_at=old, last_activity_at=initial)
+        applicant = self.add_profile(102, created_at=old, last_activity_at=initial)
+        invited = self.add_profile(103, created_at=old, last_activity_at=initial)
+        voter = self.add_profile(104, created_at=old, last_activity_at=initial)
+        tracked = self.add_profile(105, created_at=old, last_activity_at=self.now)
+        cloud = self.add_profile(106, campus="cloud", created_at=old, last_activity_at=initial)
+        with self.Session.begin() as db:
+            room = Group(capacity=3, gender="female", campus="disk")
+            request = JoinRequest(group=room, profile_id=applicant, created_at=recent)
+            db.add_all([
+                request,
+                JoinRequestVote(request=request, member_id=voter, approve=True, created_at=recent),
+                GroupInvite(from_profile_id=tracked, to_profile_id=invited, status="accepted",
+                            decided_at=recent, created_at=old),
+                GroupInvite(from_profile_id=tracked, to_profile_id=idle, status="cancelled",
+                            decided_at=recent, created_at=old),
+            ])
+        with self.engine.begin() as conn:
+            review.restore_legacy_activity(conn, initial)
+            review.restore_legacy_activity(conn, initial)
+        with self.Session() as db:
+            for profile_id, expected in (
+                (idle, old), (applicant, recent), (invited, recent), (voter, recent),
+                (tracked, self.now), (cloud, initial),
+            ):
+                self.assertEqual(db.get(Profile, profile_id).last_activity_at, expected)
+        self.assertEqual(self.claim()[:2], (idle, 101))
+        self.assertIsNone(self.claim())
 
     def finish(self, profile_id, token, status):
         with self.Session.begin() as db:

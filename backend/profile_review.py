@@ -5,7 +5,7 @@ import logging
 from datetime import datetime, timedelta
 from secrets import token_urlsafe
 
-from sqlalchemy import or_
+from sqlalchemy import DateTime, bindparam, or_, text
 from sqlalchemy.orm import Session
 
 import campuses
@@ -21,6 +21,53 @@ RESPONSE_WINDOW = timedelta(days=2)
 RETRY_INTERVAL = timedelta(days=7)
 BATCH_SIZE = 20
 POLL_INTERVAL = 15 * 60
+
+
+def restore_legacy_activity(conn, initial_stamp: datetime) -> int:
+    """Replace the rollout default with the last action attributable to the owner."""
+    result = conn.execute(text("""
+        WITH legacy AS (
+            SELECT id, created_at
+            FROM profiles
+            WHERE campus = :campus AND last_activity_at = :initial_stamp
+              AND created_at < :initial_stamp
+        ), activity AS (
+            SELECT id AS profile_id, created_at AS happened_at FROM legacy
+            UNION ALL SELECT profile_id, created_at FROM join_requests
+            UNION ALL SELECT member_id, created_at FROM join_request_votes
+            UNION ALL SELECT from_profile_id, created_at FROM group_invites
+            UNION ALL SELECT to_profile_id, decided_at FROM group_invites
+                WHERE status IN ('accepted', 'declined')
+            UNION ALL SELECT member_id, created_at FROM block_request_votes
+        ), latest AS (
+            SELECT legacy.id, MAX(activity.happened_at) AS happened_at
+            FROM legacy JOIN activity ON activity.profile_id = legacy.id
+            GROUP BY legacy.id
+        )
+        UPDATE profiles
+        SET last_activity_at = latest.happened_at
+        FROM latest
+        WHERE profiles.id = latest.id AND profiles.last_activity_at = :initial_stamp
+    """).bindparams(bindparam("initial_stamp", type_=DateTime())), {
+        "campus": campuses.DISK, "initial_stamp": initial_stamp,
+    })
+    return result.rowcount
+
+
+def migrate_legacy_activity(conn):
+    # PostgreSQL stores the common timestamp assigned by the former ADD COLUMN
+    # DEFAULT. Real activity replaced that exact value, so keep such rows intact.
+    initial_stamp = conn.execute(text("""
+        SELECT (CAST(CAST(attmissingval AS text) AS timestamp[]))[1]
+        FROM pg_attribute
+        WHERE attrelid = 'profiles'::regclass AND attname = 'last_activity_at'
+          AND atthasmissing
+    """)).scalar_one_or_none()
+    if initial_stamp is not None:
+        count = restore_legacy_activity(conn, initial_stamp)
+        log.info("Восстановлена история активности анкет Диска: %s", count)
+    else:
+        log.info("Дата начала старого учёта активности не найдена в метаданных profiles")
 
 
 def enabled() -> bool:
