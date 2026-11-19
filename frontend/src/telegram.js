@@ -57,7 +57,10 @@ export function closeWebApp() {
 export function getStartParam() {
   const fromTelegram = getWebApp()?.initDataUnsafe?.start_param;
   if (fromTelegram) return String(fromTelegram);
-  const fromUrl = new URLSearchParams(window.location.search).get("profile");
+  const params = new URLSearchParams(window.location.search);
+  const launchParam = params.get("tgWebAppStartParam");
+  if (launchParam) return launchParam;
+  const fromUrl = params.get("profile");
   return fromUrl ? `p${fromUrl}` : "";
 }
 

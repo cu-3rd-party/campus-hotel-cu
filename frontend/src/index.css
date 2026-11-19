@@ -775,26 +775,6 @@ body {
   border-radius: var(--pill);
 }
 
-/* Анкета, за которой пришли по ссылке из общей ленты. Подсветка гаснет сама:
-   это подсказка «вот она», а не постоянное состояние карточки. */
-.card--highlight {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
-}
-@media (prefers-reduced-motion: no-preference) {
-  .card--highlight {
-    animation: card-found 2.6s ease-out;
-  }
-}
-@keyframes card-found {
-  0%,
-  70% {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
-  }
-  100% {
-    box-shadow: 0 0 0 3px transparent;
-  }
-}
 .card__bio {
   font-size: 14px;
   color: var(--ink-soft);
