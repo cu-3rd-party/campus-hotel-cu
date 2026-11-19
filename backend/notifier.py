@@ -83,8 +83,8 @@ async def send_profile_review(telegram_id: int, token: str) -> tuple[str, int]:
     response = await _post_message(
         telegram_id,
         "Ты всё ещё планируешь жить в Диске и ищешь соседей?\n\n"
-        "Нажми подходящую кнопку. Если не ответишь в течение 48 часов, "
-        "мы удалим анкету из поиска.",
+        "Мы скрыли твою анкету из поиска до подтверждения. Нажми «Да, ещё ищу», "
+        "чтобы вернуть её. Если не ответишь за 48 часов, мы удалим анкету.",
         {"inline_keyboard": [
             [{"text": "Да, ещё ищу", "callback_data": f"review:{token}:keep"}],
             [{"text": "Не буду жить в Диске", "callback_data": f"review:{token}:leaving"}],

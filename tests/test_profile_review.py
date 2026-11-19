@@ -157,6 +157,35 @@ class ReviewTests(unittest.TestCase):
         with self.Session() as db:
             self.assertIsNone(db.get(Profile, profile_id))
 
+    def test_delivered_question_hides_profile_until_confirmation(self):
+        with self.Session.begin() as db:
+            room = Group(capacity=3, gender="female", campus="disk")
+            db.add(room)
+            db.flush()
+            room_id = room.id
+        profile_id = self.add_profile(101, group_id=room_id)
+        roommate_id = self.add_profile(102, group_id=room_id, last_activity_at=self.now)
+        _, _, token = self.claim()
+        headers = {"X-Telegram-Init-Data": "fixture"}
+        feed_url = "/api/profiles?campus=disk&recruiting=true"
+        with patch.object(telegram_auth, "verify_webapp_init_data", return_value={"id": 102}):
+            initial = self.client.get(feed_url, headers=headers).json()
+            self.assertEqual({profile["id"] for profile in initial}, {profile_id, roommate_id})
+            self.finish(profile_id, token, "sent")
+            hidden = self.client.get(feed_url, headers=headers).json()
+            self.assertEqual([profile["id"] for profile in hidden], [roommate_id])
+            self.assertEqual(hidden[0]["open_room"]["spots_left"], 1)
+            self.assertEqual(self.client.get(f"/api/profiles/{profile_id}", headers=headers).status_code, 404)
+        with patch.object(telegram_auth, "verify_webapp_init_data", return_value={"id": 101}):
+            self.assertEqual(self.client.get(f"/api/profiles/{profile_id}", headers=headers).status_code, 200)
+        self.assertEqual(
+            self.client.post("/api/bot/activity-review", json={"telegram_id": 101, "token": token, "answer": "keep"}).status_code,
+            200,
+        )
+        with patch.object(telegram_auth, "verify_webapp_init_data", return_value={"id": 102}):
+            visible = self.client.get(feed_url, headers=headers).json()
+            self.assertEqual({profile["id"] for profile in visible}, {profile_id, roommate_id})
+
 
 class DeliveryTests(unittest.IsolatedAsyncioTestCase):
     async def test_distinguishes_confirmed_block_from_other_failures(self):

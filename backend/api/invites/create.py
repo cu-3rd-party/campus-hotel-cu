@@ -23,6 +23,8 @@ def create_invite(
 
     if author.id == target.id:
         raise HTTPException(status_code=400, detail="Нельзя позвать самого себя")
+    if target.review_sent_at is not None:
+        raise HTTPException(status_code=409, detail="Анкета временно недоступна для приглашений")
     if author.gender != target.gender:
         raise HTTPException(
             status_code=403, detail="Парни живут с парнями, девушки — с девушками"
