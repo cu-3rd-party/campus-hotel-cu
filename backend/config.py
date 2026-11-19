@@ -27,10 +27,13 @@ def development_auth_enabled() -> bool:
 # Общий секрет между ботом и бэкендом: бот ходит в служебные ручки от имени
 # Telegram-пользователя, и без секрета так смог бы кто угодно.
 BOT_SECRET = os.getenv("BOT_SECRET", "").strip()
-DISK_PROFILE_REVIEW_ENABLED = os.getenv("DISK_PROFILE_REVIEW_ENABLED") == "1"
 
 # Адрес сайта — подставляем в ссылки внутри сообщений бота.
 SITE_URL = os.getenv("SITE_URL", "http://localhost:5173").rstrip("/")
+DISK_PROFILE_REVIEW_ENABLED = os.getenv(
+    "DISK_PROFILE_REVIEW_ENABLED",
+    "1" if SITE_URL == "https://disk.cu-politic.ru" and TELEGRAM_BOT_USERNAME == "disk_cu_bot" else "0",
+) == "1"
 
 # Короткое имя мини-аппа из @BotFather (t.me/<бот>/<это имя>). Пусто — считаем,
 # что мини-апп подключён как главный, и ссылка идёт просто на бота.
